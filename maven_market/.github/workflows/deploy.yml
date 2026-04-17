@@ -1,0 +1,22 @@
+name: "Maven Market CI/CD"
+
+on:
+  push:
+    branches: [main, dev]
+
+jobs:
+  deploy:
+    name: "Deploy to Databricks"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Deploy Bundle
+        # Dynamically deploys to 'dev' or 'prod' target based on Git branch name
+        run: databricks bundle deploy -t ${GITHUB_REF_NAME}
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}

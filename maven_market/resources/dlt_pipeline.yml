@@ -1,0 +1,22 @@
+resources:
+  pipelines:
+    maven_market_main:
+      name: "[${bundle.target}] Maven Market Medallion"
+      # This targets the specific catalog based on the environment (Dev or Prod)
+      target: ${var.target_catalog} 
+      libraries:
+        # This scans ALL subfolders: bronze, silver, and gold
+        - file:
+            path: ../src/pipelines/ 
+      configuration:
+        # Passes the config file path to every script in the pipeline
+        config_path: ${var.config_file}
+        bundle.environment: ${bundle.target}
+      clusters:
+        - label: default
+          # Ensures your cost-control policy is applied to the DLT cluster
+          policy_id: "D09C0637650005C8" 
+          autoscale:
+            min_workers: 0
+            max_workers: 2
+            mode: ENHANCED

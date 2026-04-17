@@ -19,6 +19,8 @@ paths:
   stores: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/stores/"
   return: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/return/"
   calendar: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/calendar/"
+  customers: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/atlas/mongo_maven_db/customers/"
+  products: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/atlas/mongo_maven_db/products/"
 
 checkpoints:
   transactions: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/checkpoints/transactions/"
@@ -26,4 +28,5 @@ checkpoints:
   stores: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/checkpoints/stores/"
   return: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/checkpoints/return/"
   calendar: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/checkpoints/calendar/"
-
+  customers: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/checkpoints/customers/"
+  products: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/checkpoints/products/"

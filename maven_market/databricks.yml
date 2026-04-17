@@ -7,31 +7,32 @@ include:
   - resources/*/*.yml
 
 variables:
-  environment: "dev"
-  catalog: "maven_market_uc"
-  storage_root: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/"
-  schemas:
-    bronze: "bronze"
-    silver: "silver"
-    gold: "gold"
-    audit: "audit"
+  # This finds the root of your project in the Workspace
+  config_file:
+    description: "Path to the configuration file"
+    default: "/Workspace${workspace.file_path}/config/dev_config.yaml"
+
 
 targets:
-  # The 'dev' target, for development purposes. This target is the default.
+  # Development Target
   dev:
     mode: development
     default: true
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
+    variables:
+      # This points to your dev config file
+      config_file: "/Workspace${workspace.file_path}/config/dev_config.yaml"
 
-  # The 'prod' target, used for production deployment.
+  # Production Target
   prod:
     mode: production
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
-      # We always use /Users/tansh4147@gmail.com for all resources to make sure we only have a single copy.
       root_path: /Users/tansh4147@gmail.com/.bundle/${bundle.name}/${bundle.target}
     run_as:
-      # This runs as tansh4147@gmail.com in production. We could also use a service principal here,
-      # see https://docs.databricks.com/dev-tools/bundles/permissions.html.
       user_name: tansh4147@gmail.com
+    variables:
+      # This points to your prod config file
+      config_file: "/Workspace${workspace.file_path}/config/prod_config.yaml"
+

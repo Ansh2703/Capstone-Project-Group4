@@ -1,0 +1,27 @@
+resources:
+  jobs:
+    maven_market_daily_orchestration:
+      name: "[${bundle.target}] Full Project Orchestration"
+      tasks:
+        - task_key: run_medallion_pipeline
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.maven_market_main.id}
+        
+        # Example of adding a non-DLT task (like a clean-up or audit script)
+        - task_key: run_audit_report
+          depends_on:
+            - task_key: run_medallion_pipeline
+          notebook_task:
+            notebook_path: ../src/utils/audit_report.py
+            base_parameters:
+              config_path: ${var.config_file}
+          job_cluster_key: default_cluster
+
+      job_clusters:
+        - job_cluster_key: default_cluster
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: "Standard_DC4as_v5"
+            num_workers: 0
+            spark_conf:
+              spark.databricks.cluster.profile: "singleNode"
