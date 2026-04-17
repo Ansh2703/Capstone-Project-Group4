@@ -1,7 +1,7 @@
 # Declarative Automation Bundle configuration
 # See: https://docs.databricks.com/en/dev-tools/bundles/settings.html
 bundle:
-  name: "maven_market"
+  name: "maven_market_v2"
 
 include:
   - resources/*.yml
