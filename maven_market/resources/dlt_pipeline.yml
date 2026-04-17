@@ -7,11 +7,11 @@ resources:
       
       libraries:
         # FIX: Ensure the path is relative to THIS yml file
-        - notebook:
+        - file:
             path: ../src/pipelines/bronze/ingest_csv.py
-        - notebook:
+        - file:
             path: ../src/pipelines/bronze/ingest_kafka.py
-        - notebook:
+        - file:
             path: ../src/pipelines/bronze/ingest_mongo.py
         # Add silver/gold folders here as they are created
         # - notebook: 
