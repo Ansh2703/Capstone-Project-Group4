@@ -25,7 +25,7 @@ targets:
       config_file: "/Workspace${workspace.file_path}/config/dev_config.yaml"
 
   # Production Target
-  prod:
+  main:
     mode: production
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
