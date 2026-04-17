@@ -2,21 +2,33 @@ resources:
   pipelines:
     maven_market_main:
       name: "[${bundle.target}] Maven Market Medallion"
-      # This targets the specific catalog based on the environment (Dev or Prod)
+      # FIX: Ensure target uses the variable we declared in databricks.yml
       target: ${var.target_catalog} 
+      
       libraries:
-        # This scans ALL subfolders: bronze, silver, and gold
-        - file:
-            path: ../src/pipelines/ 
+        # FIX: Ensure the path is relative to THIS yml file
+        - notebook:
+            path: ../src/pipelines/bronze/ingest_csv.py
+        - notebook:
+            path: ../src/pipelines/bronze/ingest_kafka.py
+        - notebook:
+            path: ../src/pipelines/bronze/ingest_mongo.py
+        # Add silver/gold folders here as they are created
+        # - notebook: 
+        #     path: ../src/pipelines/silver/
+
       configuration:
-        # Passes the config file path to every script in the pipeline
+        # FIX: The config_path must match the variable in databricks.yml
         config_path: ${var.config_file}
         bundle.environment: ${bundle.target}
+
       clusters:
         - label: default
-          # Ensures your cost-control policy is applied to the DLT cluster
           policy_id: "D09C0637650005C8" 
           autoscale:
-            min_workers: 0
+            min_workers: 1
             max_workers: 2
             mode: ENHANCED
+            
+      # Sets development mode based on the bundle target
+      development: ${var.pipelines_development}

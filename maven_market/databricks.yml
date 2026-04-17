@@ -1,4 +1,5 @@
-# Declarative Automation Bundle configuration, more info here: https://docs.databricks.com/en/dev-tools/bundles/settings.html
+# Declarative Automation Bundle configuration
+# See: https://docs.databricks.com/en/dev-tools/bundles/settings.html
 bundle:
   name: "maven_market"
 
@@ -7,32 +8,43 @@ include:
   - resources/*/*.yml
 
 variables:
-  # This finds the root of your project in the Workspace
+  # 1. The catalog where DLT tables will be created
+  target_catalog:
+    description: "Target catalog for the medallion layers"
+    default: "maven_market_dev"
+  
+  # 2. Dynamic path to the environment-specific config file
   config_file:
-    description: "Path to the configuration file"
-    default: "/Workspace${workspace.file_path}/config/dev_config.yaml"
+    description: "Path to the configuration file in the workspace"
+    default: "${workspace.file_path}/config/dev_config.yaml"
 
+  # 3. Controls DLT development mode (optimized for dev vs prod)
+  pipelines_development:
+    description: "Boolean to set DLT pipeline to development mode"
+    default: "true"
 
 targets:
-  # Development Target
+  # Development Target (used for 'dev' branch)
   dev:
     mode: development
     default: true
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
     variables:
-      # This points to your dev config file
-      config_file: "/Workspace${workspace.file_path}/config/dev_config.yaml"
+      target_catalog: "maven_market_dev"
+      config_file: "${workspace.file_path}/config/dev_config.yaml"
+      pipelines_development: "true"
 
-  # Production Target
+  # Production Target (used for 'main' branch)
   main:
     mode: production
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
+      # Centralized root path for production resources
       root_path: /Users/tansh4147@gmail.com/.bundle/${bundle.name}/${bundle.target}
     run_as:
       user_name: tansh4147@gmail.com
     variables:
-      # This points to your prod config file
-      config_file: "/Workspace${workspace.file_path}/config/prod_config.yaml"
-
+      target_catalog: "maven_market_prod"
+      config_file: "${workspace.file_path}/config/prod_config.yaml"
+      pipelines_development: "false"
