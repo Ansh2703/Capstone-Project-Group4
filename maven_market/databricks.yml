@@ -16,7 +16,7 @@ variables:
   # 2. Dynamic path to the environment-specific config file
   config_file:
     description: "Path to the configuration file in the workspace"
-    default: "${workspace.file_path}/config/dev_config.yaml"
+    default: "${workspace.file_path}/config/dev_config.yaml" 
 
   # 3. Controls DLT development mode (optimized for dev vs prod)
   pipelines_development:
