@@ -3,20 +3,33 @@ name: "Maven Market CI/CD"
 on:
   push:
     branches: [main, dev]
- 
+
+# Recommended to bypass Node.js deprecation warnings until default change
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   deploy:
     name: "Deploy to Databricks"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      # Step 1: Upgrade to v4+ for Node.js 24 compatibility
+      - uses: actions/checkout@v4
 
+      # Step 2: Setup the CLI
       - name: Setup Databricks CLI
         uses: databricks/setup-cli@main
 
+      # Step 3: Use working-directory to find your databricks.yml
       - name: Deploy Bundle
-        # Dynamically deploys to 'dev' or 'prod' target based on Git branch name
-        run: databricks bundle deploy -t ${GITHUB_REF_NAME}
+        working-directory: ./maven_market 
+        run: |
+          # Step 4: Map branches to Databricks targets
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            databricks bundle deploy -t prod
+          else
+            databricks bundle deploy -t dev
+          fi
         env:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
