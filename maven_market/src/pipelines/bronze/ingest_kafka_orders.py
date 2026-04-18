@@ -74,9 +74,9 @@ query = (
     df_parsed.writeStream
     .format("delta")
     .option("checkpointLocation", CHECKPOINT_PATH)
+    .option("path", OUTPUT_PATH)
     .outputMode("append")
     .trigger(processingTime='5 seconds') # Change to .trigger(processingTime='10 seconds') for continuous
-    .start(OUTPUT_PATH)
     .toTable(TABLE_NAME)
 )
 
