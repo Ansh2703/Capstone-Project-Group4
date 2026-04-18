@@ -29,8 +29,8 @@ targets:
     default: true
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
-      # This moves the metadata to a neutral area with relaxed permission locks
-      root_path: ~/Shared/.bundle/${bundle.name}/${bundle.target}
+      # Use the ~/ shorthand. This is the "Magic" path for Dev mode.
+      root_path: ~/.bundle/${bundle.name}/${bundle.target}
     variables:
       target_catalog: "maven_market_dev"
       config_file: "${workspace.file_path}/config/dev_config.yaml"
@@ -40,7 +40,8 @@ targets:
     mode: production
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
-      root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
+      # Production can stay in your specific folder
+      root_path: /Users/tansh4147@gmail.com/.bundle/${bundle.name}/${bundle.target}
     run_as:
       user_name: tansh4147@gmail.com
     variables:
