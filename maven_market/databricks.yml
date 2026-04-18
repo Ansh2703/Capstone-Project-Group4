@@ -4,8 +4,10 @@ bundle:
   name: "maven_market_v2"
 
 permissions:
-- group_name: "data-engineers"
-  level: "CAN_MANAGE"
+  - user_name: "tansh4147@gmail.com"
+    level: "CAN_MANAGE"
+  - group_name: "data-engineers"
+    level: "CAN_MANAGE"
 
 include:
   - resources/*.yml
