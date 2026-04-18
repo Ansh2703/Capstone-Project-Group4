@@ -11,6 +11,8 @@ bundle:
 permissions:
   - user_name: "tansh4147@gmail.com"
     level: "CAN_MANAGE"
+  - user_name: "devjit@wantsthistowork.com"
+    level: "CAN_MANAGE"
   - group_name: users
     level: CAN_MANAGE
 
