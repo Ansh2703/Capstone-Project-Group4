@@ -2,14 +2,19 @@
 # See: https://docs.databricks.com/en/dev-tools/bundles/settings.html
 bundle:
   name: "maven_market_v3"
+  deployment:
+    # FIX: Disabling the lock prevents the "Cannot apply local deployment permissions" error
+    lock:
+      enabled: false
 
+# Global permissions: Ensures your identity owns the bundle resources
 permissions:
   - user_name: "tansh4147@gmail.com"
     level: "CAN_MANAGE"
 
 experimental:
   scripts:
-    # Adding quotes makes it a string, which satisfies the schema
+    # Quotes ensure this is treated as a string per the Databricks schema
     disabled: "true"
 
 include:
@@ -38,7 +43,7 @@ targets:
     default: true
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
-      # Use the ~/ shorthand. This is the "Magic" path for Dev mode.
+      # Using ~/ is the safest shorthand for development mode uniqueness
       root_path: ~/.bundle/${bundle.name}/${bundle.target}
     variables:
       target_catalog: "maven_market_dev"
@@ -49,7 +54,6 @@ targets:
     mode: production
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
-      # Production can stay in your specific folder
       root_path: /Users/tansh4147@gmail.com/.bundle/${bundle.name}/${bundle.target}
     run_as:
       user_name: tansh4147@gmail.com

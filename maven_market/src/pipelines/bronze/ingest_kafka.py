@@ -5,7 +5,7 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 kafka_server = "pkc-56d1g.eastus.azure.confluent.cloud:9092"
 kafka_api_key = "OWQL53ZQ5HIRVEIX"
 kafka_secret = "cflt9GTSkONEgeiTaVr887GsEoXc36+3dquLtF/XbuTQr3gSNYFMhneZsrGN7VjA"
-base_path = "abfss://maven-market-data@mavengrp4.dfs.core.windows.net"
+base_path = "abfss://maven-market-data@mavengrp4.df s.core.windows.net"
 
 # 2. SHARED SCHEMA DEFINITION
 address_schema = StructType([
@@ -47,8 +47,8 @@ def ingest_kafka_topic(topic_name, target_name):
         .format("delta")
         .outputMode("append")
         .option("checkpointLocation", checkpoint_path)
-        .trigger(availableNow=True)
-        .start(data_path))
+        # This automatically registers the table in Unity Catalog
+        .toTable(f"maven_market_uc.bronze.{target_name}_kafka"))
 
 # 4. EXECUTE FOR BOTH TOPICS
 ingest_kafka_topic("inventory_topic", "inventory")
