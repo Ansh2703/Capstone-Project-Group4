@@ -3,7 +3,11 @@ resources:
     maven_market_main:
       name: "[${bundle.target}] Maven Market Medallion"
       # FIX: Ensure target uses the variable we declared in databricks.yml
-      target: ${var.target_catalog} 
+      target: ${var.target_catalog}
+
+      permissions:
+        - user_name: "tansh4147@gmail.com"
+          level: "CAN_MANAGE"
       
       libraries:
         # FIX: Ensure the path is relative to THIS yml file
