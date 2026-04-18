@@ -1,18 +1,19 @@
 # Declarative Automation Bundle configuration
 # See: https://docs.databricks.com/en/dev-tools/bundles/settings.html
+
 bundle:
   name: "maven_market_v3"
   deployment:
-    # FIX: Disabling the lock prevents the "Cannot apply local deployment permissions" error
+    # Keeping this as you had it (safe to keep)
     lock:
       enabled: false
 
-# Global permissions: Ensures your identity owns the bundle resources
-permissions:
-  - user_name: "tansh4147@gmail.com"
-    level: "CAN_MANAGE"
-  - user_name: devjit@tansh4147gmail.onmicrosoft.com
-    level: CAN_MANAGE
+# ❌ REMOVED permissions block (causing CI/CD deployment failure)
+# permissions:
+#   - user_name: "tansh4147@gmail.com"
+#     level: "CAN_MANAGE"
+#   - user_name: devjit@tansh4147gmail.onmicrosoft.com
+#     level: CAN_MANAGE
 
 experimental:
   scripts:
@@ -45,17 +46,18 @@ targets:
     default: true
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
-      # Using ~/ is the safest shorthand for development mode uniqueness
-      root_path: ~/.bundle/${bundle.name}/${bundle.target} 
+      # ✅ DEV must use user-specific path
+      root_path: ~/.bundle/${bundle.name}/${bundle.target}
     variables:
       target_catalog: "maven_market_dev"
       config_file: "${workspace.file_path}/config/dev_config.yaml"
       pipelines_development: "true"
 
-  main:
+  prod:   # ✅ FIX: renamed from main → prod
     mode: production
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
+      # ✅ PROD uses shared path (CI/CD compatible)
       root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
     run_as:
       user_name: tansh4147@gmail.com
