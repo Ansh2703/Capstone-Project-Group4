@@ -1,36 +1,63 @@
 # Declarative Automation Bundle configuration
 # See: https://docs.databricks.com/en/dev-tools/bundles/settings.html
-
 bundle:
-  name: "Maven Market CI/CD"
+  name: "maven_market_v3"
+  deployment:
+    # FIX: Disabling the lock prevents the "Cannot apply local deployment permissions" error
+    lock:
+      enabled: false
 
-on:
-  push:
-    branches: [main, dev]
+# Global permissions: Ensures your identity owns the bundle resources
+permissions:
+  - user_name: "tansh4147@gmail.com"
+    level: "CAN_MANAGE"
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+experimental:
+  scripts:
+    # Quotes ensure this is treated as a string per the Databricks schema
+    disabled: "true"
 
-jobs:
-  deploy:
-    name: "Deploy to Databricks"
-    runs-on: ubuntu-latest
+include:
+  - resources/*.yml
+  - resources/*/*.yml
 
-    steps:
-      # Checkout repository
-      - uses: actions/checkout@v4
+variables:
+  # 1. The catalog where DLT tables will be created
+  target_catalog:
+    description: "Target catalog for the medallion layers"
+    default: "maven_market_dev"
+  
+  # 2. Dynamic path to the environment-specific config file
+  config_file:
+    description: "Path to the configuration file in the workspace"
+    default: "${workspace.file_path}/config/dev_config.yaml" 
 
-      # Setup Databricks CLI
-      - name: Setup Databricks CLI
-        uses: databricks/setup-cli@main
+  # 3. Controls DLT development mode (optimized for dev vs prod)
+  pipelines_development:
+    description: "Boolean to set DLT pipeline to development mode"
+    default: "true"
 
-      # Deploy bundle (FIXED)
-      - name: Deploy Bundle
-        working-directory: ./maven_market   # keep this ONLY if databricks.yml is inside this folder
-        run: |
-          # ❌ REMOVED dev deployment completely
-          # ✅ Always deploy to prod (CI/CD safe)
-          databricks bundle deploy -t prod
-        env:
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://adb-7405605358658093.13.azuredatabricks.net
+      # Using ~/ is the safest shorthand for development mode uniqueness
+      root_path: ~/.bundle/${bundle.name}/${bundle.target} 
+    variables:
+      target_catalog: "maven_market_dev"
+      config_file: "${workspace.file_path}/config/dev_config.yaml"
+      pipelines_development: "true"
+
+  main:
+    mode: production
+    workspace:
+      host: https://adb-7405605358658093.13.azuredatabricks.net
+      root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
+    run_as:
+      user_name: tansh4147@gmail.com
+    variables:
+      target_catalog: "maven_market_prod"
+      config_file: "${workspace.file_path}/config/prod_config.yaml"
+      pipelines_development: "false"

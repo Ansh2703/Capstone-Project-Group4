@@ -19,6 +19,7 @@ API_SECRET = "cflt9GTSkONEgeiTaVr887GsEoXc36+3dquLtF/XbuTQr3gSNYFMhneZsrGN7VjA"
 # FIXED: Removed space in .dfs.core
 CHECKPOINT_PATH = "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/checkpoints/kafka/inventory/"
 TABLE_NAME = "maven_market_uc.bronze.inventory_kafka"
+OUTPUT_PATH = "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/kafka/inventory"
 
 # ================================
 # INIT SPARK
@@ -73,7 +74,8 @@ query = (
     .format("delta")
     .option("checkpointLocation", CHECKPOINT_PATH)
     .outputMode("append")
-    .trigger(availableNow=True)
+    .trigger(processingTime='5 seconds') # Change to .trigger(processingTime='10 seconds') for continuous
+    .start(OUTPUT_PATH)
     .toTable(TABLE_NAME)
 )
 
