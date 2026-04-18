@@ -12,7 +12,9 @@ resources:
         - file:
             path: ../src/pipelines/bronze/ingest_csv.py
         - file:
-            path: ../src/pipelines/bronze/ingest_kafka.py
+            path: ../src/pipelines/bronze/ingest_kafka_inventory.py
+        - file:
+            path: ../src/pipelines/bronze/ingest_kafka_orders.py
         - file:
             path: ../src/pipelines/bronze/ingest_mongo.py
         # Add silver/gold folders here as they are created
@@ -25,8 +27,7 @@ resources:
         bundle.environment: ${bundle.target}
 
       clusters:
-        - label: default
-          policy_id: "D09C0637650005C8" 
+        - label: default 
           autoscale:
             min_workers: 1
             max_workers: 2
