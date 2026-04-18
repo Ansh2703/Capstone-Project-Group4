@@ -2,12 +2,10 @@ resources:
   pipelines:
     maven_market_main:
       name: "[${bundle.target}] Maven Market Medallion"
-      # FIX: Ensure target uses the variable we declared in databricks.yml
-      target: ${var.target_catalog}
+      # FIX: Split the legacy 'target' into Catalog and Schema
+      catalog: ${var.target_catalog}
+      schema: "medallion_tables"
 
-      permissions:
-        - user_name: "tansh4147@gmail.com"
-          level: "CAN_MANAGE"
       
       libraries:
         # FIX: Ensure the path is relative to THIS yml file

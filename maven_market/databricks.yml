@@ -7,6 +7,11 @@ permissions:
   - user_name: "tansh4147@gmail.com"
     level: "CAN_MANAGE"
 
+experimental:
+  scripts:
+    # Adding quotes makes it a string, which satisfies the schema
+    disabled: "true"
+
 include:
   - resources/*.yml
   - resources/*/*.yml

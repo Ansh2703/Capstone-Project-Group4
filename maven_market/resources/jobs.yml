@@ -3,9 +3,6 @@ resources:
     maven_market_daily_orchestration:
       name: "[${bundle.target}] Full Project Orchestration"
 
-      permissions:
-        - user_name: "tansh4147@gmail.com"
-          level: "CAN_MANAGE_RUN"
 
           
       tasks:
