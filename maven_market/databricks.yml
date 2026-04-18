@@ -30,7 +30,7 @@ targets:
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
       # This moves the metadata to a neutral area with relaxed permission locks
-      root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
+      root_path: ~/Shared/.bundle/${bundle.name}/${bundle.target}
     variables:
       target_catalog: "maven_market_dev"
       config_file: "${workspace.file_path}/config/dev_config.yaml"
