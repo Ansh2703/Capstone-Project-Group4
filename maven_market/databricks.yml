@@ -7,11 +7,6 @@ bundle:
     lock:
       enabled: false
 
-# Global permissions: Ensures your identity owns the bundle resources
-permissions:
-  - user_name: "tansh4147@gmail.com"
-    level: "CAN_MANAGE"
-
 experimental:
   scripts:
     # Quotes ensure this is treated as a string per the Databricks schema
