@@ -3,6 +3,10 @@
 bundle:
   name: "maven_market_v2"
 
+permissions:
+- group_name: "data-engineers"
+  level: "CAN_MANAGE"
+
 include:
   - resources/*.yml
   - resources/*/*.yml
