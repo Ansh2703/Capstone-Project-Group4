@@ -48,7 +48,7 @@ targets:
     variables:
       target_catalog: "maven_market_dev"
       config_file: "${workspace.file_path}/config/dev_config.yaml"
-      pipelines_development: "true"
+      pipelines_development: "false"
 
   main:
     mode: production
