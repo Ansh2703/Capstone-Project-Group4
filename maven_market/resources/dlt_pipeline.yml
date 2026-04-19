@@ -25,7 +25,7 @@ resources:
 
       clusters:
         - label: default
-          node_type_id: "Standard_D2s_v3"  # A very small 1-core machine
+          node_type_id: "Standard_DS3_v2"  # A very small 1-core machine
           num_workers: 0                   # Force Single Node mode
           spark_conf:
             spark.databricks.cluster.profile: "singleNode"
