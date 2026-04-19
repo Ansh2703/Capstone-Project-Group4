@@ -5,53 +5,43 @@ bundle:
     lock:
       enabled: false
 
-# Global permissions: Architect and Service Principal ownership
+# Global permissions: Data Architect and Service Principal ownership
 permissions:
   - user_name: "tansh4147@gmail.com"
     level: "CAN_MANAGE"
   - service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
     level: "CAN_MANAGE"
 
-# Include all resource files (DLT, Jobs, Policies)
 include:
   - resources/*.yml
   - resources/*/*.yml
 
 variables:
   target_catalog:
-    description: "The Unity Catalog catalog name"
     default: "maven_market_dev"
-  
   config_file:
-    description: "Path to the YAML configuration file"
     default: "${workspace.file_path}/config/dev_config.yaml" 
-
   pipelines_development:
-    description: "Boolean to set DLT pipeline to development mode"
     default: "true"
 
 targets:
-  # Development Target (Used by 'dev' branch)
   dev:
     mode: development
     default: true
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
-      # Using ~/ ensures uniqueness in dev mode to avoid CLI errors
       root_path: ~/.bundle/${bundle.name}/dev
     variables:
       target_catalog: "maven_market_dev"
       config_file: "${workspace.file_path}/config/dev_config.yaml"
       pipelines_development: "true"
 
-  # Production Target (Used by 'main' branch)
   main:
     mode: production
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
       root_path: /Shared/.bundle/${bundle.name}/prod
     run_as:
-      # SPN identity authorized in Unity Catalog
       service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
     variables:
       target_catalog: "maven_market_uc"
