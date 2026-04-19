@@ -2,20 +2,19 @@
 bundle:
   name: "maven_market_v3"
   deployment:
-    # Prevents "Cannot apply local deployment permissions" errors in CI/CD [cite: 13]
+    # ARCHITECT FIX: Use direct engine to bypass Terraform GPG key errors
+    engine: direct
     lock:
       enabled: false
 
-
-
-# Global permissions: Explicitly includes you and the Service Principal to satisfy CLI guardrails [cite: 15, 75]
+# Global permissions: Architect and Service Principal ownership
 permissions:
   - user_name: "tansh4147@gmail.com"
     level: "CAN_MANAGE"
   - service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
     level: "CAN_MANAGE"
 
-# Include all resource files, including your new policies folder 
+# Include resources from the resources directory
 include:
   - resources/*.yml
   - resources/*/*.yml
@@ -27,7 +26,6 @@ variables:
   
   config_file:
     description: "Path to the YAML configuration file"
-    # Note: Modern DABs handle the /Workspace prefix automatically [cite: 21]
     default: "${workspace.file_path}/config/dev_config.yaml" 
 
   pipelines_development:
@@ -35,27 +33,27 @@ variables:
     default: "true"
 
 targets:
-  # Development Target (Triggered by 'dev' branch)
+  # Development Target (Used by 'dev' branch)
   dev:
     mode: development
     default: true
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
-      # FIXED: Using ~/ ensures uniqueness for development mode to avoid CLI errors [cite: 13, 17]
+      # FIXED: ~/ ensures uniqueness in dev mode
       root_path: ~/.bundle/${bundle.name}/dev
     variables:
       target_catalog: "maven_market_dev"
       config_file: "${workspace.file_path}/config/dev_config.yaml"
       pipelines_development: "true"
 
-  # Production Target (Triggered by 'main' branch)
+  # Production Target (Used by 'main' branch)
   main:
     mode: production
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
       root_path: /Shared/.bundle/${bundle.name}/prod
     run_as:
-      # Runs as the Service Principal authorized in Unity Catalog [cite: 38, 70]
+      # SPN identity authorized in Unity Catalog
       service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
     variables:
       target_catalog: "maven_market_uc"

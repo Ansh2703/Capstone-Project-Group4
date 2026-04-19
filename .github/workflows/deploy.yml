@@ -4,6 +4,7 @@ on:
   push:
     branches: [main, dev]
 
+# Ensures Node 24 support for modern GitHub Actions
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -12,31 +13,25 @@ jobs:
     name: "Deploy to Databricks"
     runs-on: ubuntu-latest
     steps:
+      # Step 1: Checkout code
       - uses: actions/checkout@v4
 
-      # Step 2: ARCHITECT FIX - Manually install Terraform
-      # This prevents the Databricks CLI from failing on the expired PGP key
-      - name: Install Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.5.5"
-          terraform_wrapper: false
-
+      # Step 2: Setup Databricks CLI (@main ensures the latest features)
       - name: Setup Databricks CLI
         uses: databricks/setup-cli@main
 
+      # Step 3: Deployment Logic
       - name: Deploy Bundle
         working-directory: ./maven_market 
         run: |
-          # Use the pre-installed Terraform for validation and deployment
+          # The Direct Engine skips Terraform downloads entirely.
           if [ "${{ github.ref_name }}" == "main" ]; then
-            databricks bundle validate -t main
             databricks bundle deploy -t main
           else
-            databricks bundle validate -t dev
             databricks bundle deploy -t dev
           fi
         env:
+          # Auth via Service Principal OAuth secrets
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
