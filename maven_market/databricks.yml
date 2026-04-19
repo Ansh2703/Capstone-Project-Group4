@@ -2,27 +2,30 @@
 bundle:
   name: "maven_market_v3"
   deployment:
+    # Prevents "Cannot apply local deployment permissions" errors in CI/CD [cite: 13]
     lock:
       enabled: false
 
-# Global permissions: Fixed 'CAN_USE' to 'CAN_VIEW'
+# Global permissions: Explicitly includes you and the Service Principal to satisfy CLI guardrails [cite: 15, 75]
 permissions:
   - user_name: "tansh4147@gmail.com"
     level: "CAN_MANAGE"
-  - group_name: "users"
-    level: "CAN_VIEW"
+  - service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
+    level: "CAN_MANAGE"
 
+# Include all resource files, including your new policies folder 
 include:
   - resources/*.yml
+  - resources/*/*.yml
 
 variables:
   target_catalog:
-    description: "The Unity Catalog catalog name (dev or prod)"
+    description: "The Unity Catalog catalog name"
     default: "maven_market_dev"
   
   config_file:
     description: "Path to the YAML configuration file"
-    # REMOVED '/Workspace' prefix to fix the substring warning
+    # Note: Modern DABs handle the /Workspace prefix automatically [cite: 21]
     default: "${workspace.file_path}/config/dev_config.yaml" 
 
   pipelines_development:
@@ -30,24 +33,27 @@ variables:
     default: "true"
 
 targets:
+  # Development Target (Triggered by 'dev' branch)
   dev:
     mode: development
     default: true
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
-      root_path: /Shared/.bundle/${bundle.name}/dev
+      # FIXED: Using ~/ ensures uniqueness for development mode to avoid CLI errors [cite: 13, 17]
+      root_path: ~/.bundle/${bundle.name}/dev
     variables:
       target_catalog: "maven_market_dev"
       config_file: "${workspace.file_path}/config/dev_config.yaml"
       pipelines_development: "true"
 
+  # Production Target (Triggered by 'main' branch)
   main:
     mode: production
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
       root_path: /Shared/.bundle/${bundle.name}/prod
     run_as:
-      # SPN ID we verified in Unity Catalog
+      # Runs as the Service Principal authorized in Unity Catalog [cite: 38, 70]
       service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
     variables:
       target_catalog: "maven_market_uc"
