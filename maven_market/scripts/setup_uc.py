@@ -2,30 +2,26 @@
 from pyspark.sql import SparkSession
 spark = SparkSession.builder.getOrCreate()
 
-# The catalogs we need to claim
 catalogs = ["maven_market_uc", "maven_market_dev"]
-# YOUR email - the human who needs to see the data
 human_admin = "tansh4147@gmail.com"
 
 for catalog in catalogs:
     print(f"--- Processing Catalog: {catalog} ---")
     
-    # 1. Ensure it exists (The Service Principal does this)
+    # 1. Ensure Catalog exists
     spark.sql(f"CREATE CATALOG IF NOT EXISTS {catalog}")
     
-    # 2. TRANSFER OWNERSHIP (The Service Principal gives the keys to YOU)
-    print(f"Transferring ownership of {catalog} to {human_admin}...")
-    spark.sql(f"ALTER CATALOG {catalog} OWNER TO `{human_admin}`")
-    
-    # 3. Grant full permissions back to yourself just to be safe
+    # 2. Use GRANT instead of ALTER OWNER
+    # This gives you full power without violating "Manage" restrictions
+    print(f"Granting privileges on {catalog} to {human_admin}...")
+    spark.sql(f"GRANT USE CATALOG, BROWSE ON CATALOG {catalog} TO `{human_admin}`")
     spark.sql(f"GRANT ALL PRIVILEGES ON CATALOG {catalog} TO `{human_admin}`")
     
-    # 4. Fix Schemas inside the catalog
+    # 3. Create and Grant on Schemas
     schemas = ["bronze", "silver", "gold", "audit"]
     for schema_name in schemas:
         spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{schema_name}")
-        # Transfer ownership of every schema too
-        spark.sql(f"ALTER SCHEMA {catalog}.{schema_name} OWNER TO `{human_admin}`")
-        print(f" - Ownership of {catalog}.{schema_name} transferred to {human_admin}")
+        spark.sql(f"GRANT ALL PRIVILEGES ON SCHEMA {catalog}.{schema_name} TO `{human_admin}`")
+        print(f" - Granted access to {catalog}.{schema_name}")
 
-print("Mission Accomplished: You are now the owner of all infrastructure!")
+print("Infrastructure Setup Complete! You should now see the catalogs.")
