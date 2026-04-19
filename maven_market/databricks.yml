@@ -1,6 +1,8 @@
 # Maven Market - Secure Retail Analytics Lakehouse
 bundle:
   name: "maven_market_v3"
+  experimental:
+    terraform_version: "1.5.5"
   deployment:
     # Prevents "Cannot apply local deployment permissions" errors in CI/CD [cite: 13]
     lock:
