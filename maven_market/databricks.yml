@@ -1,67 +1,57 @@
-# Declarative Automation Bundle configuration
-# See: https://docs.databricks.com/en/dev-tools/bundles/settings.html
+# Maven Market - Secure Retail Analytics Lakehouse
 bundle:
   name: "maven_market_v3"
   deployment:
-    # FIX: Disabling the lock prevents the "Cannot apply local deployment permissions" error
+    # Disabling the lock prevents "Cannot apply local deployment permissions" errors in automated pipelines
     lock:
       enabled: false
 
-# Global permissions: Ensures your identity owns the bundle resources
+# Global permissions: Data Architect (you) maintains full control
 permissions:
   - user_name: "tansh4147@gmail.com"
     level: "CAN_MANAGE"
-  - user_name: "devjit@wantsthistowork.com"
-    level: "CAN_MANAGE"
-  - group_name: users
-    level: CAN_MANAGE
-
-experimental:
-  scripts:
-    # Quotes ensure this is treated as a string per the Databricks schema
-    disabled: "true"
+  - group_name: "users"
+    level: "CAN_USE"
 
 include:
   - resources/*.yml
-  - resources/*/*.yml
 
 variables:
-  # 1. The catalog where DLT tables will be created
   target_catalog:
-    description: "Target catalog for the medallion layers"
+    description: "The Unity Catalog catalog name (dev or prod)"
     default: "maven_market_dev"
   
-  # 2. Dynamic path to the environment-specific config file
   config_file:
-    description: "Path to the configuration file in the workspace"
-    default: "${workspace.file_path}/config/dev_config.yaml" 
+    description: "Path to the YAML configuration file"
+    default: "/Workspace${workspace.file_path}/config/dev_config.yaml" 
 
-  # 3. Controls DLT development mode (optimized for dev vs prod)
   pipelines_development:
     description: "Boolean to set DLT pipeline to development mode"
     default: "true"
 
 targets:
+  # Development Target (Triggered by 'dev' branch)
   dev:
-    mode: production
+    mode: development
     default: true
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
-      # Using ~/ is the safest shorthand for development mode uniqueness
       root_path: /Shared/.bundle/${bundle.name}/dev
     variables:
       target_catalog: "maven_market_dev"
-      config_file: "${workspace.file_path}/config/dev_config.yaml"
-      pipelines_development: "false"
+      config_file: "/Workspace${workspace.file_path}/config/dev_config.yaml"
+      pipelines_development: "true"
 
+  # Production Target (Triggered by 'main' branch)
   main:
     mode: production
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
-      root_path: /Shared/.bundle/${bundle.name}/${bundle.target}
+      root_path: /Shared/.bundle/${bundle.name}/prod
     run_as:
-      user_name: tansh4147@gmail.com
+      # Run as the Service Principal to utilize the verified Unity Catalog & Secret permissions
+      service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
     variables:
-      target_catalog: "maven_market_prod"
-      config_file: "${workspace.file_path}/config/prod_config.yaml"
+      target_catalog: "maven_market_uc"
+      config_file: "/Workspace${workspace.file_path}/config/prod_config.yaml"
       pipelines_development: "false"
