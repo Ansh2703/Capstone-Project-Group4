@@ -24,10 +24,13 @@ resources:
         bundle.environment: ${bundle.target}
 
       clusters:
-        - label: default 
-          autoscale:
-            min_workers: 1
-            max_workers: 2
-            mode: ENHANCED
+        - label: default
+          node_type_id: "Standard_DS1_v2"  # A very small 1-core machine
+          num_workers: 0                   # Force Single Node mode
+          spark_conf:
+            spark.databricks.cluster.profile: "singleNode"
+            spark.master: "local[*]"
+          custom_tags:
+            ResourceClass: "SingleNode"
             
       development: ${var.pipelines_development}
