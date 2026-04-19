@@ -1,11 +1,9 @@
-# Maven Market - Secure Retail Analytics Lakehouse
 bundle:
   name: "maven_market_v3"
   deployment:
     lock:
       enabled: false
 
-# Global permissions: Data Architect and Service Principal ownership
 permissions:
   - user_name: "tansh4147@gmail.com"
     level: "CAN_MANAGE"

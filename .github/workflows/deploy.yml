@@ -14,16 +14,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Step 2: Manually install Terraform to bypass the CLI's GPG error
-      - name: Install and Link Terraform
-        run: |
-          wget https://releases.hashicorp.com/terraform/1.5.5/terraform_1.5.5_linux_amd64.zip
-          unzip terraform_1.5.5_linux_amd64.zip
-          sudo mv terraform /usr/local/bin/
-          mkdir -p ~/.databricks/bin
-          cp /usr/local/bin/terraform ~/.databricks/bin/terraform
-          terraform --version
-
       - name: Setup Databricks CLI
         uses: databricks/setup-cli@main
 
@@ -40,5 +30,6 @@ jobs:
           ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          # Forces CLI to use the binary we just installed
-          DATABRICKS_TERRAFORM_PATH: /usr/local/bin/terraform
+          # ARCHITECT FIX: This forces the use of the direct engine 
+          # which bypasses Terraform and the PGP key errors.
+          DATABRICKS_BUNDLE_ENGINE: direct
