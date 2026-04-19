@@ -25,7 +25,7 @@
     "type": "fixed",
     "value": "singleNode"
   },
-  "custom_tags.project": {
+  "custom_tags.Project": {
     "type": "fixed",
     "value": "maven_market"
   },
