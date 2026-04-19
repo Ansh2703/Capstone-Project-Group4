@@ -12,7 +12,7 @@ permissions:
   - service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
     level: "CAN_MANAGE"
 
-# Include all resource files
+# Include all resource files (DLT, Jobs, Policies)
 include:
   - resources/*.yml
   - resources/*/*.yml
@@ -37,6 +37,7 @@ targets:
     default: true
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
+      # Using ~/ ensures uniqueness in dev mode to avoid CLI errors
       root_path: ~/.bundle/${bundle.name}/dev
     variables:
       target_catalog: "maven_market_dev"
@@ -50,6 +51,7 @@ targets:
       host: https://adb-7405605358658093.13.azuredatabricks.net
       root_path: /Shared/.bundle/${bundle.name}/prod
     run_as:
+      # SPN identity authorized in Unity Catalog
       service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
     variables:
       target_catalog: "maven_market_uc"

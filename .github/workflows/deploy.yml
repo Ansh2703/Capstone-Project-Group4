@@ -15,16 +15,17 @@ jobs:
       # Step 1: Checkout repository
       - uses: actions/checkout@v4
 
-      # Step 2: ARCHITECT FIX - Manually refresh HashiCorp GPG key
-      # This step bypasses the "openpgp: key expired" error by updating the system keyring.
-      - name: Fix HashiCorp GPG Key
+      # Step 2: ARCHITECT FIX - Manually install Terraform
+      # This completely bypasses the 'error downloading Terraform' and PGP key issues.
+      - name: Install and Link Terraform
         run: |
-          sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
-          wget -O- https://apt.releases.hashicorp.com/gpg | \
-          gpg --dearmor | \
-          sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
-          # Verify the new key is active
-          gpg --no-default-keyring --keyring /usr/share/keyrings/hashicorp-archive-keyring.gpg --fingerprint
+          wget https://releases.hashicorp.com/terraform/1.5.5/terraform_1.5.5_linux_amd64.zip
+          unzip terraform_1.5.5_linux_amd64.zip
+          sudo mv terraform /usr/local/bin/
+          # Ensure Databricks CLI finds this local version
+          mkdir -p ~/.databricks/bin
+          cp /usr/local/bin/terraform ~/.databricks/bin/terraform
+          terraform --version
 
       # Step 3: Setup Databricks CLI
       - name: Setup Databricks CLI
@@ -45,3 +46,5 @@ jobs:
           ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          # Explicitly tell the CLI to use the pre-installed Terraform
+          DATABRICKS_TERRAFORM_PATH: /usr/local/bin/terraform
