@@ -2,16 +2,15 @@
 bundle:
   name: "maven_market_v3"
   deployment:
-    # Disabling the lock prevents "Cannot apply local deployment permissions" errors in automated pipelines
     lock:
       enabled: false
 
-# Global permissions: Data Architect (you) maintains full control
+# Global permissions: Fixed 'CAN_USE' to 'CAN_VIEW'
 permissions:
   - user_name: "tansh4147@gmail.com"
     level: "CAN_MANAGE"
   - group_name: "users"
-    level: "CAN_USE"
+    level: "CAN_VIEW"
 
 include:
   - resources/*.yml
@@ -23,14 +22,14 @@ variables:
   
   config_file:
     description: "Path to the YAML configuration file"
-    default: "/Workspace${workspace.file_path}/config/dev_config.yaml" 
+    # REMOVED '/Workspace' prefix to fix the substring warning
+    default: "${workspace.file_path}/config/dev_config.yaml" 
 
   pipelines_development:
     description: "Boolean to set DLT pipeline to development mode"
     default: "true"
 
 targets:
-  # Development Target (Triggered by 'dev' branch)
   dev:
     mode: development
     default: true
@@ -39,19 +38,18 @@ targets:
       root_path: /Shared/.bundle/${bundle.name}/dev
     variables:
       target_catalog: "maven_market_dev"
-      config_file: "/Workspace${workspace.file_path}/config/dev_config.yaml"
+      config_file: "${workspace.file_path}/config/dev_config.yaml"
       pipelines_development: "true"
 
-  # Production Target (Triggered by 'main' branch)
   main:
     mode: production
     workspace:
       host: https://adb-7405605358658093.13.azuredatabricks.net
       root_path: /Shared/.bundle/${bundle.name}/prod
     run_as:
-      # Run as the Service Principal to utilize the verified Unity Catalog & Secret permissions
+      # SPN ID we verified in Unity Catalog
       service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
     variables:
       target_catalog: "maven_market_uc"
-      config_file: "/Workspace${workspace.file_path}/config/prod_config.yaml"
+      config_file: "${workspace.file_path}/config/prod_config.yaml"
       pipelines_development: "false"
