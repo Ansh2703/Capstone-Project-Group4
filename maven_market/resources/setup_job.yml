@@ -5,18 +5,7 @@ resources:
       tasks:
         - task_key: run_setup_script
           spark_python_task:
-            # Path must be relative to this yml file
+            # Path remains relative to this yml file
             python_file: "../scripts/setup_uc.py" 
-          job_cluster_key: setup_cluster
-      
-      job_clusters:
-        - job_cluster_key: setup_cluster
-          new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: "Standard_DS3_v2"
-            num_workers: 0
-            spark_conf:
-              spark.databricks.cluster.profile: "singleNode"
-              spark.master: "local[*]"
-            custom_tags:
-              ResourceClass: "SingleNode"
+          # ARCHITECT FIX: Pointing to your existing warm cluster for instant execution
+          existing_cluster_id: "0415-143420-edxkuvmq"
