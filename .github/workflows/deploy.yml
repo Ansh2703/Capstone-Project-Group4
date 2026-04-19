@@ -24,12 +24,14 @@ jobs:
       - name: Deploy Bundle
         working-directory: ./maven_market 
         run: |
-          # Step 4: Map branches to Databricks targets
           if [ "${{ github.ref_name }}" == "main" ]; then
-            databricks bundle deploy -t prod
+            databricks bundle deploy -t main
           else
             databricks bundle deploy -t dev
           fi
         env:
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          # Use the Service Principal credentials for Enterprise-grade security
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
