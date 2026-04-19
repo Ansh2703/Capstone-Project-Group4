@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, dev]
 
-# Recommended to bypass Node.js deprecation warnings until default change
+# Recommended to bypass Node.js deprecation warnings and ensure Node 24 support
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -13,24 +13,32 @@ jobs:
     name: "Deploy to Databricks"
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Upgrade to v4+ for Node.js 24 compatibility
+      # Step 1: Checkout the repository
       - uses: actions/checkout@v4
 
-      # Step 2: Setup the CLI
+      # Step 2: Setup the latest Databricks CLI (@main ensures recent bug fixes)
       - name: Setup Databricks CLI
         uses: databricks/setup-cli@main
 
-      # Step 3: Use working-directory to find your databricks.yml
+      # Step 3: Execute Deployment Logic
       - name: Deploy Bundle
         working-directory: ./maven_market 
         run: |
+          # ARCHITECT LOGIC: Perform a validation first. 
+          # This forces the CLI to pull the Terraform version (1.5.5) defined 
+          # in your databricks.yml, bypassing the expired key error.
+          
+          echo "Validating bundle for target: ${{ github.ref_name == 'main' && 'main' || 'dev' }}"
+          
           if [ "${{ github.ref_name }}" == "main" ]; then
+            databricks bundle validate -t main
             databricks bundle deploy -t main
           else
+            databricks bundle validate -t dev
             databricks bundle deploy -t dev
           fi
         env:
-          # Use the Service Principal credentials for Enterprise-grade security
+          # Enterprise Auth: Using the Service Principal credentials you saved in GitHub Secrets
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
