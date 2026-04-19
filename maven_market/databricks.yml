@@ -13,7 +13,7 @@ permissions:
 # This line ensures setup_job.yml is included
 include:
   - resources/setup_job.yml  # ONLY include the setup job for now
-  - resources/*.yml        # Temporarily COMMENT THIS OUT
+  # - resources/*.yml        # Temporarily COMMENT THIS OUT
 
 variables:
   target_catalog:
