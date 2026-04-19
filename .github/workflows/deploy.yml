@@ -14,15 +14,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ARCHITECT FIX: Install Databricks CLI via curl to guarantee it's in the PATH
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks version
+
       - name: Deploy Bundle
         working-directory: ./maven_market 
         run: |
-          # 1. Deploy the new resource definitions
-          databricks bundle deploy -t ${{ github.ref_name == 'main' && 'main' || 'dev' }}
+          # Detect target based on branch
+          TARGET=${{ github.ref_name == 'main' && 'main' || 'dev' }}
           
-          # 2. Execute the setup job to create missing catalogs
-          # This must run before your DLT pipeline starts for the first time
-          databricks bundle run setup_infrastructure -t ${{ github.ref_name == 'main' && 'main' || 'dev' }}
+          echo "Deploying to target: $TARGET"
+          
+          # 1. Deploy resource definitions
+          databricks bundle deploy -t $TARGET
+          
+          # 2. RUN setup script to create missing catalogs/schemas
+          databricks bundle run setup_infrastructure -t $TARGET
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
