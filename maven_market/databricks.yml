@@ -1,19 +1,24 @@
 bundle:
   name: "maven_market_v3"
 
-# Universal permissions for the project
-permissions:
-  - user_name: "tansh4147@gmail.com"
-    level: "CAN_MANAGE"
-  - service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
-    level: "CAN_MANAGE"
-
-# Include all resources (Pipelines, Jobs, etc.)
+# 1. Loading the resources
 include:
   - resources/*.yml
 
+# 2. DEFINING THE VARIABLES (This is what is missing!)
+variables:
+  target_catalog:
+    description: "The catalog where data will be stored"
+    default: "maven_market_dev"
+  config_file:
+    description: "Path to the environment config"
+    default: "${workspace.file_path}/config/dev_config.yaml"
+  pipelines_development:
+    description: "Enable development mode for DLT"
+    default: "true"
+
+# 3. Target Overrides
 targets:
-  # Development Target (Current Focus)
   dev:
     mode: development
     default: true
@@ -22,8 +27,8 @@ targets:
       root_path: ~/.bundle/${bundle.name}/dev
     variables:
       target_catalog: "maven_market_dev"
+      pipelines_development: "true"
 
-  # Production Target (For later)
   main:
     mode: production
     workspace:
@@ -33,3 +38,4 @@ targets:
       service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
     variables:
       target_catalog: "maven_market_uc"
+      pipelines_development: "false"
