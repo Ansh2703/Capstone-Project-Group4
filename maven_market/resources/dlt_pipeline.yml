@@ -2,13 +2,14 @@ resources:
   pipelines:
     maven_market_main:
       name: "[${bundle.target}] Maven Market Medallion"
-      # FIX: Split the legacy 'target' into Catalog and Schema
-      catalog: ${var.target_catalog}
-      schema: "medallion_tables"
-
       
+      # This tells DLT which catalog to use (maven_market_dev)
+      catalog: ${var.target_catalog}
+      
+      # We remove the hardcoded 'schema' so your Python code 
+      # can place tables in .bronze, .silver, or .gold dynamically.
+
       libraries:
-        # FIX: Ensure the path is relative to THIS yml file
         - file:
             path: ../src/pipelines/bronze/ingest_csv.py
         - file:
@@ -17,12 +18,8 @@ resources:
             path: ../src/pipelines/bronze/ingest_kafka_orders.py
         - file:
             path: ../src/pipelines/bronze/ingest_mongo.py
-        # Add silver/gold folders here as they are created
-        # - notebook: 
-        #     path: ../src/pipelines/silver/
 
       configuration:
-        # FIX: The config_path must match the variable in databricks.yml
         config_path: ${var.config_file}
         bundle.environment: ${bundle.target}
 
@@ -33,5 +30,4 @@ resources:
             max_workers: 2
             mode: ENHANCED
             
-      # Sets development mode based on the bundle target
       development: ${var.pipelines_development}
