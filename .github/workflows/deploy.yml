@@ -14,22 +14,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Databricks CLI
-        uses: databricks/setup-cli@main
-
       - name: Deploy Bundle
         working-directory: ./maven_market 
         run: |
-          if [ "${{ github.ref_name }}" == "main" ]; then
-            databricks bundle deploy -t main
-          else
-            databricks bundle deploy -t dev
-          fi
+          # 1. Deploy the new resource definitions
+          databricks bundle deploy -t ${{ github.ref_name == 'main' && 'main' || 'dev' }}
+          
+          # 2. Execute the setup job to create missing catalogs
+          # This must run before your DLT pipeline starts for the first time
+          databricks bundle run setup_infrastructure -t ${{ github.ref_name == 'main' && 'main' || 'dev' }}
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          # ARCHITECT FIX: This forces the use of the direct engine 
-          # which bypasses Terraform and the PGP key errors.
           DATABRICKS_BUNDLE_ENGINE: direct

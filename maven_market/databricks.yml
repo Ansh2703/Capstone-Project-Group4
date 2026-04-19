@@ -10,9 +10,9 @@ permissions:
   - service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
     level: "CAN_MANAGE"
 
+# This line ensures setup_job.yml is included
 include:
   - resources/*.yml
-  - resources/*/*.yml
 
 variables:
   target_catalog:
