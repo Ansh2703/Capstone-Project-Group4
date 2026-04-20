@@ -21,7 +21,7 @@ resources:
       clusters:
         - label: default
           # D4s_v5 is a 4-core machine that usually has high availability
-          node_type_id: "Standard_D2s_v3" 
+          node_type_id: "Standard_DS3_v2"
           num_workers: 0                   
           spark_conf:
             spark.databricks.cluster.profile: "singleNode"
