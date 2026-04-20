@@ -1,11 +1,11 @@
-resources:
-  jobs:
-    setup_infrastructure:
-      name: "[${bundle.target}] Project Infrastructure Setup"
-      tasks:
-        - task_key: run_setup_script
-          spark_python_task:
-            # Path remains relative to this yml file
-            python_file: "../scripts/setup_uc.py" 
-          # ARCHITECT FIX: Pointing to your existing warm cluster for instant execution
-          existing_cluster_id: "0415-143420-edxkuvmq"
+# resources:
+#   jobs:
+#     setup_infrastructure:
+#       name: "[${bundle.target}] Project Infrastructure Setup"
+#       tasks:
+#         - task_key: run_setup_script
+#           spark_python_task:
+#             # Path remains relative to this yml file
+#             python_file: "../scripts/setup_uc.py" 
+#           # ARCHITECT FIX: Pointing to your existing warm cluster for instant execution
+#           existing_cluster_id: "0415-143420-edxkuvmq"
