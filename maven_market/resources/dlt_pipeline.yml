@@ -2,7 +2,9 @@ resources:
   pipelines:
     maven_market_main:
       name: "[${bundle.target}] Maven Market Medallion"
+      # Use the variables from databricks.yml for better flexibility
       catalog: ${var.target_catalog}
+      target: ${var.target_schema}
       
       libraries:
         - file:
@@ -15,22 +17,22 @@ resources:
             path: ../src/pipelines/bronze/ingest_mongo.py
 
       configuration:
-        # Source paths for the datasets
-        bundle.source_path_transactions: "abfss://raw-data@mavengrp4.dfs.core.windows.net/transactions/"
-        bundle.source_path_regions: "abfss://raw-data@mavengrp4.dfs.core.windows.net/regions/"
-        bundle.source_path_stores: "abfss://raw-data@mavengrp4.dfs.core.windows.net/stores/"
-        bundle.source_path_returns: "abfss://raw-data@mavengrp4.dfs.core.windows.net/returns/"
-        bundle.source_path_calendar: "abfss://raw-data@mavengrp4.dfs.core.windows.net/calendar/"
+        # These keys match the spark.conf.get calls in your new Python files
+        bundle.source_path_transactions: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/transactions/"
+        bundle.source_path_regions: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/regions/"
+        bundle.source_path_stores: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/stores/"
+        # Fixed key name 'return' to match the list in your ingest_csv.py
+        bundle.source_path_return: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/returns/"
+        bundle.source_path_calendar: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/calendar/"
+        bundle.source_path_customers: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/atlas/mongo_maven_db/customers/"
+        bundle.source_path_products: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/atlas/mongo_maven_db/products/"
 
       clusters:
         - label: default
-          # D4s_v5 is a 4-core machine that usually has high availability
-          node_type_id: "Standard_DS3_v2"
+          node_type_id: "Standard_DS3_v2" # 4 cores, fits your quota
           num_workers: 0                   
           spark_conf:
             spark.databricks.cluster.profile: "singleNode"
             spark.master: "local[*]"
           custom_tags:
             ResourceClass: "SingleNode"
-            
-      development: ${var.pipelines_development}

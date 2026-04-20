@@ -5,11 +5,14 @@ bundle:
 include:
   - resources/*.yml
 
-# 2. DEFINING THE VARIABLES (This is what is missing!)
+# 2. DEFINING THE VARIABLES
 variables:
   target_catalog:
     description: "The catalog where data will be stored"
-    default: "maven_market_dev"
+    default: "maven_market_uc"
+  target_schema:
+    description: "The schema (database) for the tables"
+    default: "bronze"
   config_file:
     description: "Path to the environment config"
     default: "${workspace.file_path}/config/dev_config.yaml"
@@ -26,7 +29,8 @@ targets:
       host: https://adb-7405605358658093.13.azuredatabricks.net
       root_path: ~/.bundle/${bundle.name}/dev
     variables:
-      target_catalog: "maven_market_dev"
+      target_catalog: "maven_market_uc"
+      target_schema: "bronze"
       pipelines_development: "true"
 
   main:
@@ -38,4 +42,5 @@ targets:
       service_principal_name: "91d7acfb-a1bd-43fb-9024-27fbeb59da96"
     variables:
       target_catalog: "maven_market_uc"
+      target_schema: "bronze"
       pipelines_development: "false"
