@@ -29,7 +29,7 @@ resources:
 
       clusters:
         - label: default
-          node_type_id: "Standard_DS3_v2" # 4 cores, fits your quota
+          node_type_id: "Standard_D4as_v5" # 4 cores, fits your quota
           num_workers: 0                   
           spark_conf:
             spark.databricks.cluster.profile: "singleNode"
