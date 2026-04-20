@@ -1,77 +1,38 @@
-# ==========================================
-# CSV INGESTION PIPELINE (BRONZE LAYER)
-# ==========================================
-
-import yaml
-from pyspark.sql import SparkSession
+import dlt
 from pyspark.sql.functions import col, current_timestamp, lit
 
-# ------------------------------------------
-# STEP 1: START SPARK SESSION
-# ------------------------------------------
-spark = SparkSession.builder.appName("CSV Ingestion").getOrCreate()
+# -------------------------------------------------------------------------
+# NOTE: In DLT, we don't manually load YAML files from local paths using 'open'.
+# We use dlt.get_parameter() or hardcoded lists for the table definitions.
+# DLT manages the spark session and streaming triggers automatically.
+# -------------------------------------------------------------------------
 
-# ------------------------------------------
-# STEP 2: LOAD CONFIG FILE
-# ------------------------------------------
-config_path = "/Workspace/Capstone-Project-Group4/maven_market/config/dev_config.yaml"
+# List of datasets to create tables for
+datasets = ["transactions", "regions", "stores", "returns", "calendar"]
 
-with open(config_path, "r") as file:
-    config = yaml.safe_load(file)
+# In DLT, we use a loop to generate functions that define our tables
+def create_bronze_table(dataset_name):
+    @dlt.table(
+        name=f"bronze_{dataset_name}",
+        comment=f"Raw ingestion of {dataset_name} data via Auto Loader."
+    )
+    def table_definition():
+        # DLT reads the source path from your pipeline configuration
+        # Make sure these keys exist in your dev_config.yaml/pipeline settings
+        source_path = spark.conf.get(f"bundle.source_path_{dataset_name}")
 
-# ------------------------------------------
-# STEP 3: DEFINE DATASETS
-# ------------------------------------------
-datasets = ["transactions", "regions", "stores", "return", "calendar"]
+        return (
+            spark.readStream.format("cloudFiles")
+            .option("cloudFiles.format", "csv")
+            .option("header", "true")
+            .option("cloudFiles.inferColumnTypes", "true")
+            # We do NOT provide a checkpointLocation here; DLT handles it.
+            .load(source_path)
+            .withColumn("ingestion_time", current_timestamp())
+            .withColumn("source_file", col("_metadata.file_path"))
+            .withColumn("source_name", lit(dataset_name))
+        )
 
-# ------------------------------------------
-# STEP 4: INGESTION FUNCTION
-# ------------------------------------------
-
-def ingest_dataset(dataset_name):
-
-    print(f" Starting ingestion for: {dataset_name}")
-
-    path = config["paths"][dataset_name]
-    checkpoint = config["checkpoints"][dataset_name]
-
-    # Build table name from catalog and schema
-    catalog = config["catalog"]
-    schema = config["schemas"]["bronze"]
-    table = f"{catalog}.{schema}.{dataset_name}"
-
-    # READ USING AUTO LOADER
-    df = spark.readStream.format("cloudFiles") \
-        .option("cloudFiles.format", "csv") \
-        .option("header", "true") \
-        .option("multiLine", "true") \
-        .option("cloudFiles.inferColumnTypes", "true") \
-        .option("cloudFiles.schemaLocation", checkpoint + "/schema") \
-        .load(path)
-
-    # ADD METADATA
-    df = df.withColumn("ingestion_time", current_timestamp()) \
-           .withColumn("source_file", col("_metadata.file_path")) \
-           .withColumn("source", lit(dataset_name))
-
-    # WRITE TO DELTA
-    query = df.writeStream \
-        .format("delta") \
-        .option("checkpointLocation", checkpoint) \
-        .option("mergeSchema", "true") \
-        .outputMode("append") \
-        .trigger(availableNow=True) \
-        .toTable(table)
-
-    return query
-
-# ------------------------------------------
-# STEP 5: RUN INGESTION
-# ------------------------------------------
-queries = []
-
+# Loop through and register the tables with the DLT engine
 for dataset in datasets:
-    q = ingest_dataset(dataset)
-    queries.append(q)
-
-print(" Ingestion started for all datasets (will stop automatically).")
+    create_bronze_table(dataset)

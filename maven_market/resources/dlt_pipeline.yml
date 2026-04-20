@@ -15,8 +15,12 @@ resources:
             path: ../src/pipelines/bronze/ingest_mongo.py
 
       configuration:
-        config_path: ${var.config_file}
-        bundle.environment: ${bundle.target}
+        # Source paths for the datasets
+        bundle.source_path_transactions: "abfss://raw-data@mavengrp4.dfs.core.windows.net/transactions/"
+        bundle.source_path_regions: "abfss://raw-data@mavengrp4.dfs.core.windows.net/regions/"
+        bundle.source_path_stores: "abfss://raw-data@mavengrp4.dfs.core.windows.net/stores/"
+        bundle.source_path_returns: "abfss://raw-data@mavengrp4.dfs.core.windows.net/returns/"
+        bundle.source_path_calendar: "abfss://raw-data@mavengrp4.dfs.core.windows.net/calendar/"
 
       clusters:
         - label: default
