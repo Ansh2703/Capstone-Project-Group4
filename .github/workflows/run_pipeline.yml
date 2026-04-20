@@ -1,12 +1,21 @@
-name: "Maven Market - Deploy Only"
+name: "Maven Market - Manual Start"
 
 on:
-  push:
-    branches: [main, dev]
+  # This creates the "Run workflow" button in the Actions tab
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Environment to run'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - main
 
 jobs:
-  deploy:
-    name: "Deploy Code"
+  run_pipeline:
+    name: "Trigger Pipeline"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,11 +24,11 @@ jobs:
         run: |
           curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
 
-      - name: Deploy Bundle
+      - name: Start Pipeline
         working-directory: ./maven_market 
         run: |
-          TARGET=${{ github.ref_name == 'main' && 'main' || 'dev' }}
-          databricks bundle deploy -t $TARGET
+          # This command sends the "Start" signal to the DLT pipeline
+          databricks bundle run maven_market_main --refresh-all -t ${{ github.event.inputs.target }}
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}

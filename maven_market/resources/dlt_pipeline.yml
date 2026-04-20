@@ -2,13 +2,8 @@ resources:
   pipelines:
     maven_market_main:
       name: "[${bundle.target}] Maven Market Medallion"
-      
-      # This tells DLT which catalog to use (maven_market_dev)
       catalog: ${var.target_catalog}
       
-      # We remove the hardcoded 'schema' so your Python code 
-      # can place tables in .bronze, .silver, or .gold dynamically.
-
       libraries:
         - file:
             path: ../src/pipelines/bronze/ingest_csv.py
@@ -25,8 +20,9 @@ resources:
 
       clusters:
         - label: default
-          node_type_id: "Standard_DS3_v2"  # A very small 1-core machine
-          num_workers: 0                   # Force Single Node mode
+          # D4s_v5 is a 4-core machine that usually has high availability
+          node_type_id: "Standard_D4s_v5" 
+          num_workers: 0                   
           spark_conf:
             spark.databricks.cluster.profile: "singleNode"
             spark.master: "local[*]"
