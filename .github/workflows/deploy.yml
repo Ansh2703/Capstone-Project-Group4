@@ -1,12 +1,26 @@
-name: "DEPLOY_PROJECT_CODE"
+name: "Maven Market CI/CD"
 
 on:
   push:
     branches: [main, dev]
+  # This adds the "Run workflow" button in the Actions tab
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Select Target Environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - main
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   deploy:
-    name: "Sync Code to Databricks"
+    name: "Deploy and Run"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,11 +29,25 @@ jobs:
         run: |
           curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
 
-      - name: Deploy Bundle
+      - name: Deploy and Trigger Pipeline
         working-directory: ./maven_market 
         run: |
-          TARGET=${{ github.ref_name == 'main' && 'main' || 'dev' }}
+          # 1. Logic to handle both Auto-Push and Manual Button
+          # If manual (workflow_dispatch), use the input. Otherwise, use branch logic.
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TARGET="${{ github.event.inputs.target }}"
+          else
+            TARGET=${{ github.ref_name == 'main' && 'main' || 'dev' }}
+          fi
+          
+          echo "Processing target: $TARGET"
+          
+          # 2. Deploy
           databricks bundle deploy -t $TARGET
+          
+          # 3. Run Pipeline (The Remote Start Button)
+          databricks bundle run maven_market_main --refresh-all -t $TARGET
+          
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
