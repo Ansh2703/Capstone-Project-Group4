@@ -5,7 +5,7 @@ resources:
       # Use the variables from databricks.yml for better flexibility
       catalog: ${var.target_catalog}
       target: ${var.target_schema}
-      
+      #for better compute
       serverless: true
 
 
