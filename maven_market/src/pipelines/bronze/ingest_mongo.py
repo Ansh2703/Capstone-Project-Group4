@@ -5,7 +5,7 @@ datasets = ["customers", "products"]
 
 def create_mongo_bronze(dataset_name):
     @dlt.table(
-        name=f"bronze_{dataset_name}",
+        name=f"{dataset_name}",
         comment=f"Ingesting MongoDB data for {dataset_name}"
     )
     def mongo_definition():

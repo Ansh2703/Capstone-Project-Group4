@@ -6,7 +6,7 @@ resources:
       catalog: ${var.target_catalog}
       target: ${var.target_schema}
       
-      serverless: false
+      serverless: true
 
 
       
@@ -20,6 +20,15 @@ resources:
         - file:
             path: ../src/pipelines/bronze/ingest_mongo.py
 
+        - file:
+            path: ../src/pipelines/silver/silver_csv_dlt.py
+        - file:
+            path: ../src/pipelines/silver/silver_kafka_dlt.py
+        - file:
+            path: ../src/pipelines/silver/silver_mongo_dlt.py
+        - file:
+            path: ../src/pipelines/gold/gold_dlt.py
+
       configuration:
         # These keys match the spark.conf.get calls in your new Python files
         bundle.source_path_transactions: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/transactions/"
@@ -30,13 +39,3 @@ resources:
         bundle.source_path_calendar: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/calendar/"
         bundle.source_path_customers: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/atlas/mongo_maven_db/customers/"
         bundle.source_path_products: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/atlas/mongo_maven_db/products/"
-
-      clusters:
-        - label: default
-          node_type_id: "Standard_D4as_v5" # 4 cores, fits your quota
-          num_workers: 0                   
-          spark_conf:
-            spark.databricks.cluster.profile: "singleNode"
-            spark.master: "local[*]"
-          custom_tags:
-            ResourceClass: "SingleNode"
