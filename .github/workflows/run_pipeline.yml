@@ -1,11 +1,10 @@
 name: "Maven Market - Manual Start"
 
 on:
-  # This creates the "Run workflow" button in the Actions tab
   workflow_dispatch:
     inputs:
       target:
-        description: 'Environment to run'
+        description: 'Select environment to start'
         required: true
         default: 'dev'
         type: choice
@@ -15,7 +14,7 @@ on:
 
 jobs:
   run_pipeline:
-    name: "Trigger Pipeline"
+    name: "Trigger Remote Start"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +26,7 @@ jobs:
       - name: Start Pipeline
         working-directory: ./maven_market 
         run: |
-          # This command sends the "Start" signal to the DLT pipeline
+          # This command starts the DLT pipeline remotely
           databricks bundle run maven_market_main --refresh-all -t ${{ github.event.inputs.target }}
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}

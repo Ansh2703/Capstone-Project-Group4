@@ -6,7 +6,7 @@ on:
 
 jobs:
   deploy:
-    name: "Deploy Code"
+    name: "Sync Code to Databricks"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
