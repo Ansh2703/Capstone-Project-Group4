@@ -1,4 +1,4 @@
-name: "Maven Market - Manual Start"
+name: "START_DLT_PIPELINE"
 
 on:
   workflow_dispatch:
