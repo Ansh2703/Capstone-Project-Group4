@@ -5,9 +5,12 @@ on:
     branches: [main, dev]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   deploy:
-    name: "Deploy to Databricks"
+    name: "Deploy and Run"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,11 +19,22 @@ jobs:
         run: |
           curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
 
-      - name: Deploy Bundle
+      - name: Deploy and Trigger Pipeline
         working-directory: ./maven_market 
         run: |
+          # 1. Determine the environment
           TARGET=${{ github.ref_name == 'main' && 'main' || 'dev' }}
+          
+          echo "Deploying to target: $TARGET"
+          # 2. Deploy the latest bundle configurations
           databricks bundle deploy -t $TARGET
+          
+          echo "Starting the DLT Pipeline run..."
+          # 3. Trigger the specific DLT pipeline. 
+          # Use --refresh-all to ensure a clean start of your Medallion layers.
+          # The name 'maven_market_main' must match your resource key in dlt_pipeline.yml.
+          databricks bundle run maven_market_main --refresh-all -t $TARGET
+          
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
