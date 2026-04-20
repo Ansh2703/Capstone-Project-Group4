@@ -6,7 +6,7 @@ datasets = ["transactions", "regions", "stores", "return", "calendar"]
 
 def create_bronze_table(dataset_name):
     @dlt.table(
-        name=f"{dataset_name}",
+        name=f"bronze_{dataset_name}",
         comment=f"Raw ingestion of {dataset_name} data via Auto Loader."
     )
     def table_definition():

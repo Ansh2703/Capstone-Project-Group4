@@ -3,7 +3,7 @@ from pyspark.sql.functions import col, from_json, current_timestamp
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 
 @dlt.table(
-    name="inventory_kafka",
+    name="bronze_inventory_kafka",
     comment="Ingesting inventory updates from Kafka"
 )
 def bronze_inventory_kafka():

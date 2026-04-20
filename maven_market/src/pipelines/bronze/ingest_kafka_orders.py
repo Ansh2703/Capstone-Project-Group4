@@ -3,7 +3,7 @@ from pyspark.sql.functions import col, from_json, current_timestamp
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 
 @dlt.table(
-    name="orders_kafka",
+    name="bronze_orders_kafka",
     comment="Ingesting orders from Confluent Cloud Kafka"
 )
 def bronze_orders_kafka():

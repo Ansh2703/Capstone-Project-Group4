@@ -2,16 +2,10 @@ import dlt
 from pyspark.sql import functions as F
 from pyspark.sql.functions import col, to_date, current_timestamp
 
-# ── Step 1: Hardcoded config for verification ────────────────────────────────
 CATALOG       = "maven_market_uc"
 BRONZE_SCHEMA = "bronze"
 SILVER_SCHEMA = "silver"
 ENV           = "dev"
-
-
-
-# 1. TRANSACTIONS  (Fact – streaming, append-only)
-
 
 
 @dlt.table(
@@ -39,7 +33,7 @@ def silver_transactions():
 
     return (
         spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.transactions")
+        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_transactions")
         .select(
             raw_txn_date.alias("transaction_date"),
             raw_stk_date.alias("stock_date"),
@@ -47,12 +41,10 @@ def silver_transactions():
             col("customer_id").cast("int").alias("customer_id"),
             col("store_id").cast("int").alias("store_id"),
             col("quantity").cast("int").alias("quantity"),
-            # Pre-computed date parts – avoids runtime YEAR()/MONTH() in BI queries
             F.year(raw_txn_date).alias("transaction_year"),
             F.month(raw_txn_date).alias("transaction_month"),
             F.quarter(raw_txn_date).alias("transaction_quarter"),
             F.dayofweek(raw_txn_date).alias("transaction_day_of_week"),
-            # Lineage / audit
             col("ingestion_time").alias("bronze_ingestion_time"),
             col("source_file"),
             current_timestamp().alias("silver_ingestion_time"),
@@ -60,10 +52,6 @@ def silver_transactions():
         )
     )
 
-
-# =============================================================
-# 2. RETURNS  (Fact – streaming, append-only)
-# =============================================================
 
 @dlt.table(
     name="returns",
@@ -87,7 +75,7 @@ def silver_returns():
 
     return (
         spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.return")
+        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_return")
         .select(
             raw_date.alias("return_date"),
             F.year(raw_date).alias("return_year"),
@@ -101,7 +89,6 @@ def silver_returns():
         )
     )
 
-# 3. STORES  
 
 @dlt.view(name="stores_cleaned_vw")
 @dlt.expect_or_fail("valid_store_pk",  "store_id IS NOT NULL")
@@ -111,7 +98,7 @@ def silver_returns():
 def stores_cleaned_vw():
     return (
         spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.stores")
+        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_stores")
         .select(
             col("store_id").cast("int").alias("store_id"),
             col("region_id").cast("int").alias("region_id"),
@@ -163,17 +150,13 @@ dlt.apply_changes(
 )
 
 
-# 4. REGIONS  
-
-
-
 @dlt.view(name="regions_cleaned_vw")
 @dlt.expect_or_fail("valid_region_pk", "region_id IS NOT NULL")
 @dlt.expect(        "has_sales_region", "sales_region IS NOT NULL")
 def regions_cleaned_vw():
     return (
         spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.regions")
+        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_regions")
         .select(
             col("region_id").cast("int").alias("region_id"),
             col("sales_district"),
@@ -202,9 +185,7 @@ dlt.apply_changes(
     keys               = ["region_id"],
     sequence_by        = col("bronze_ingestion_time"),
     stored_as_scd_type = 1,
-    # No track_history_column_list for SCD-1: all non-key columns are overwritten
 )
-
 
 
 @dlt.table(
@@ -224,7 +205,7 @@ def silver_calendar():
 
     return (
         spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.calendar")
+        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_calendar")
         .select(
             raw_date.alias("date"),
             F.year(raw_date).alias("year"),

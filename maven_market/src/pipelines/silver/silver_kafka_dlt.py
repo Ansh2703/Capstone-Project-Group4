@@ -1,20 +1,11 @@
-
-# silver_kafka_dlt.py 
-
 import dlt
 from pyspark.sql import functions as F
 from pyspark.sql.functions import col, current_timestamp
 
-# ── Step 1: Hardcoded config for verification ────────────────────────────────
 CATALOG       = "maven_market_uc"
 BRONZE_SCHEMA = "bronze"
 SILVER_SCHEMA = "silver"
 ENV           = "dev"
-
-
-
-# 1. ORDERS 
-
 
 
 @dlt.table(
@@ -37,10 +28,9 @@ ENV           = "dev"
 @dlt.expect_or_drop("valid_order_product",  "product_id IS NOT NULL")
 @dlt.expect(        "has_store_id",         "store_id IS NOT NULL")
 def silver_orders():
-    # ── Streaming side: raw Kafka events from Bronze ──────────
     orders_stream = (
         spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.orders_kafka")
+        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_orders_kafka")
         .select(
             col("order_id").cast("int").alias("order_id"),
             F.to_timestamp(col("event_time")).alias("event_timestamp"),
@@ -48,14 +38,11 @@ def silver_orders():
             col("store_id").cast("int").alias("store_id"),
             col("customer_id").cast("int").alias("customer_id"),
             col("quantity").cast("int").alias("quantity"),
-            # Pre-compute date parts for partitioning and dim_date join
             F.to_date(F.to_timestamp(col("event_time"))).alias("order_date"),
             F.year(F.to_timestamp(col("event_time"))).alias("order_year"),
             F.month(F.to_timestamp(col("event_time"))).alias("order_month"),
         )
     )
-
-    # ── Static side: current SCD-2 row from Silver stores ─────
 
     stores_static = (
         spark.read
@@ -68,8 +55,6 @@ def silver_orders():
             col("region_id"),
         )
     )
-
-    # ── Stream-Static join ────────────────────────────────────
 
     return (
         orders_stream
@@ -84,7 +69,6 @@ def silver_orders():
             col("order_date"),
             col("order_year"),
             col("order_month"),
-            # Enrichment from stores dimension
             col("store_city"),
             col("store_state"),
             col("region_id"),
@@ -93,9 +77,6 @@ def silver_orders():
         )
     )
 
-
-
-# 2. INVENTORY 
 
 @dlt.table(
     name="inventory",
@@ -114,7 +95,7 @@ def silver_orders():
 def silver_inventory():
     return (
         spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.inventory_kafka")
+        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_inventory_kafka")
         .select(
             col("event_id").cast("int").alias("event_id"),
             F.to_timestamp(col("event_time")).alias("event_timestamp"),
@@ -122,7 +103,6 @@ def silver_inventory():
             col("store_id").cast("int").alias("store_id"),
             col("stock_level").cast("int").alias("stock_level"),
             col("event_type"),
-            # Stock-health tier: computed once here, used in Real-Time Ops dashboard
             F.when(col("stock_level") == 0,  F.lit("OUT_OF_STOCK"))
              .when(col("stock_level") < 10,  F.lit("LOW"))
              .when(col("stock_level") < 50,  F.lit("MEDIUM"))

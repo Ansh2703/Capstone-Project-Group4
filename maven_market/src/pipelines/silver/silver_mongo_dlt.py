@@ -1,18 +1,12 @@
-
-
-
 import dlt
 from pyspark.sql import functions as F
 from pyspark.sql.functions import col, to_date, current_timestamp
 
-# ── Step 1: Hardcoded config for verification ────────────────────────────────
 CATALOG       = "maven_market_uc"
 BRONZE_SCHEMA = "bronze"
 SILVER_SCHEMA = "silver"
 ENV           = "dev"
 
-# ── JSON Schemas for the "data" column (Fivetran connector) ──
-# Used only when Bronze has not already flattened the document.
 CUSTOMERS_JSON_SCHEMA = """
     STRUCT<
         customer_id:             INT,
@@ -54,20 +48,14 @@ PRODUCTS_JSON_SCHEMA = """
 """
 
 
-
-# 1. CUSTOMERS  
-#
-
 @dlt.view(name="customers_parsed_vw")
 @dlt.expect_or_fail("valid_customer_pk",  "customer_id IS NOT NULL")
 @dlt.expect(        "has_email",           "email_address IS NOT NULL")
 @dlt.expect(        "valid_country",       "customer_country IS NOT NULL")
 @dlt.expect(        "valid_gender",        "gender IN ('M', 'F')")
 def customers_parsed_vw():
-    df = spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.customers")
+    df = spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_customers")
 
-    # Auto-detect: Fivetran generic connector writes a nested "data" JSON column.
-    # A custom connector may have already flattened the document — detect and adapt.
     if "data" in df.columns and "customer_id" not in df.columns:
         df = (
             df.withColumn("_parsed", F.from_json(col("data"), CUSTOMERS_JSON_SCHEMA))
@@ -80,9 +68,7 @@ def customers_parsed_vw():
             col("customer_acct_num"),
             col("first_name"),
             col("last_name"),
-            # Derived full_name – used by the name-masking UDF in governance layer
             F.concat_ws(" ", col("first_name"), col("last_name")).alias("full_name"),
-            # ── PII columns (masked at governance view layer) ──────
             col("email_address"),
             col("customer_address"),
             col("customer_city"),
@@ -91,13 +77,11 @@ def customers_parsed_vw():
             col("customer_country"),
             to_date(col("birthdate"),      "M/d/yyyy").alias("birthdate"),
             to_date(col("acct_open_date"), "M/d/yyyy").alias("acct_open_date"),
-            # ── SCD-2 tracked (mutable) attributes ────────────────
             col("marital_status"),
             col("yearly_income"),
             col("member_card"),
             col("occupation"),
             col("homeowner"),
-            # ── Stable (non-tracked) attributes ───────────────────
             col("gender"),
             col("total_children").cast("int").alias("total_children"),
             col("num_children_at_home").cast("int").alias("num_children_at_home"),
@@ -145,17 +129,13 @@ dlt.apply_changes(
 )
 
 
-
-# 2. PRODUCTS  (Dimension – SCD Type-2)
-
-
 @dlt.view(name="products_parsed_vw")
 @dlt.expect_or_fail("valid_product_pk",   "product_id IS NOT NULL")
 @dlt.expect_or_drop("valid_retail_price", "product_retail_price > 0")
 @dlt.expect_or_drop("valid_cost",         "product_cost > 0")
 @dlt.expect(        "price_above_cost",   "product_retail_price > product_cost")
 def products_parsed_vw():
-    df = spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.products")
+    df = spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_products")
 
     if "data" in df.columns and "product_id" not in df.columns:
         df = (
@@ -174,7 +154,6 @@ def products_parsed_vw():
             col("product_weight").cast("double").alias("product_weight"),
             col("recyclable").cast("boolean").alias("recyclable"),
             col("low_fat").cast("boolean").alias("low_fat"),
-            # Derived margin – informational metric, not a DQ gate
             F.round(
                 (col("product_retail_price").cast("double") - col("product_cost").cast("double"))
                 / col("product_retail_price").cast("double") * 100,
