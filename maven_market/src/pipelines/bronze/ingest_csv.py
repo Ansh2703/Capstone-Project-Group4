@@ -1,16 +1,11 @@
-import sys, os
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 import dlt
 from pyspark.sql.functions import col, current_timestamp, lit
-from utils.logger import PipelineLogger
+from logger import PipelineLogger
 
-# INIT LOGGER (DLT-safe usage)
-logger = PipelineLogger(spark, layer="bronze")
+logger = PipelineLogger(layer="bronze")
 
-# List of datasets
 datasets = ["transactions", "regions", "stores", "return", "calendar"]
 
-# FUNCTION TO CREATE TABLES
 def create_bronze_table(dataset_name):
 
     table_name = f"bronze_{dataset_name}"
@@ -22,7 +17,6 @@ def create_bronze_table(dataset_name):
     )
     def table_definition():
 
-        # LOG START (lightweight)
         logger.log("INFO", "Starting ingestion", stage)
 
         try:
@@ -39,29 +33,15 @@ def create_bronze_table(dataset_name):
                 .withColumn("source_name", lit(dataset_name))
             )
 
-            # LOG SUCCESS (lightweight)
-            logger.log(
-                "INFO",
-                "Ingestion transformation defined",
-                stage,
-                status="SUCCESS"
-            )
-
+            logger.log("INFO", "Transformation defined", stage, status="SUCCESS")
             return df
 
         except Exception as e:
-            logger.log(
-                "ERROR",
-                "Ingestion failed",
-                stage,
-                status="FAILED",
-                error=str(e)
-            )
+            logger.log("ERROR", "Ingestion failed", stage, status="FAILED", error=str(e))
             raise
 
-# CREATE ALL TABLES
+
 for dataset in datasets:
     create_bronze_table(dataset)
 
-# GLOBAL PIPELINE LOG
 logger.log("INFO", "All Bronze CSV tables registered", stage="bronze_pipeline")

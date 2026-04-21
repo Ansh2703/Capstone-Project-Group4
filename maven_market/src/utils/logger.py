@@ -3,7 +3,7 @@ from datetime import datetime
 
 class PipelineLogger:
 
-    def __init__(self, spark, layer="unknown", pipeline="maven_market"):
+    def __init__(self, spark=None, layer="unknown", pipeline="maven_market"):
         self.spark = spark
         self.layer = layer
         self.pipeline = pipeline
@@ -15,17 +15,15 @@ class PipelineLogger:
         log_entry = {
             "timestamp": datetime.utcnow().isoformat(),
             "run_id": self.run_id,
-            "level": level,
+            "pipeline": self.pipeline,
             "layer": self.layer,
             "stage": stage,
+            "level": level,
             "message": message,
             "status": status,
             "row_count": row_count,
             "error": error
         }
 
-        self.spark.createDataFrame([log_entry]) \
-            .write.mode("append") \
-            .saveAsTable("maven_market_dev.audit_logs")
-
-        print(f"[{level}] [{self.layer}] {stage} | {message}")
+        # DLT-safe logging (NO saveAsTable)
+        print(f"[LOG] {log_entry}")
