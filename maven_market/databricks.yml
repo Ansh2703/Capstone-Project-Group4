@@ -10,9 +10,6 @@ variables:
   target_catalog:
     description: "The catalog where data will be stored"
     default: "maven_market_uc"
-  target_schema:
-    description: "The schema (database) for the tables"
-    default: "bronze"
   config_file:
     description: "Path to the environment config"
     default: "${workspace.file_path}/config/dev_config.yaml"
@@ -30,7 +27,6 @@ targets:
       root_path: ~/.bundle/${bundle.name}/dev
     variables:
       target_catalog: "maven_market_uc"
-      target_schema: "bronze"
       pipelines_development: "true"
 
   main:
@@ -42,5 +38,4 @@ targets:
       service_principal_name: "5e35aeb2-73b1-4dd2-92cf-ae0e4829bb65"
     variables:
       target_catalog: "maven_market_uc"
-      target_schema: "bronze"
       pipelines_development: "false"

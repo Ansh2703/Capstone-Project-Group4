@@ -6,14 +6,26 @@ resources:
 
           
       tasks:
-        - task_key: run_medallion_pipeline
+        - task_key: run_bronze_pipeline
           pipeline_task:
-            pipeline_id: ${resources.pipelines.maven_market_main.id}
+            pipeline_id: ${resources.pipelines.maven_market_bronze.id}
+
+        - task_key: run_silver_pipeline
+          depends_on:
+            - task_key: run_bronze_pipeline
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.maven_market_silver.id}
+
+        - task_key: run_gold_pipeline
+          depends_on:
+            - task_key: run_silver_pipeline
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.maven_market_gold.id}
         
         # COMMENTED OUT until you actually create this file
         # - task_key: run_audit_report
         #   depends_on:
-        #     - task_key: run_medallion_pipeline
+        #     - task_key: run_gold_pipeline
         #   notebook_task:
         #     notebook_path: ../src/utils/audit_report.py
         #     base_parameters:

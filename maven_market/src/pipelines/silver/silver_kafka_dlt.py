@@ -2,9 +2,9 @@ import dlt
 from pyspark.sql import functions as F
 from pyspark.sql.functions import col, current_timestamp
 
-CATALOG       = "maven_market_uc"
+# Cross-schema reference: read catalog from pipeline configuration
+CATALOG       = spark.conf.get("bundle.target_catalog")
 BRONZE_SCHEMA = "bronze"
-SILVER_SCHEMA = "silver"
 ENV           = "dev"
 
 
@@ -29,7 +29,7 @@ ENV           = "dev"
 @dlt.expect(        "has_store_id",         "store_id IS NOT NULL")
 def silver_orders():
     orders_stream = (
-        spark.readStream.table("bronze_orders_kafka")
+        spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_orders_kafka")
         .select(
             col("order_id").cast("int").alias("order_id"),
             F.to_timestamp(col("event_time")).alias("event_timestamp"),
@@ -43,9 +43,9 @@ def silver_orders():
         )
     )
 
+    # stores is in the same silver pipeline, use dlt.read for pipeline-internal reference
     stores_static = (
-        spark.read
-        .table("stores")
+        dlt.read("stores")
         .filter(col("__END_AT").isNull())
         .select(
             col("store_id").alias("s_store_id"),
@@ -93,7 +93,7 @@ def silver_orders():
 @dlt.expect(        "valid_event_type",      "event_type IN ('RESTOCK', 'SALE', 'ADJUSTMENT', 'RETURN')")
 def silver_inventory():
     return (
-        spark.readStream.table("bronze_inventory_kafka")
+        spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_inventory_kafka")
         .select(
             col("event_id").cast("int").alias("event_id"),
             F.to_timestamp(col("event_time")).alias("event_timestamp"),

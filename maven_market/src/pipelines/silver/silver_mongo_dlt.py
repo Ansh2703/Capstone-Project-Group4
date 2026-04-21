@@ -2,9 +2,9 @@ import dlt
 from pyspark.sql import functions as F
 from pyspark.sql.functions import col, to_date, current_timestamp
 
-CATALOG       = "maven_market_uc"
+# Cross-schema reference: read catalog from pipeline configuration
+CATALOG       = spark.conf.get("bundle.target_catalog")
 BRONZE_SCHEMA = "bronze"
-SILVER_SCHEMA = "silver"
 ENV           = "dev"
 
 CUSTOMERS_JSON_SCHEMA = """
@@ -54,7 +54,7 @@ PRODUCTS_JSON_SCHEMA = """
 @dlt.expect(        "valid_country",       "customer_country IS NOT NULL")
 @dlt.expect(        "valid_gender",        "gender IN ('M', 'F')")
 def customers_parsed_vw():
-    df = spark.readStream.table("bronze_customers")
+    df = spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_customers")
 
     if "data" in df.columns and "customer_id" not in df.columns:
         df = (
@@ -135,7 +135,7 @@ dlt.apply_changes(
 @dlt.expect_or_drop("valid_cost",         "product_cost > 0")
 @dlt.expect(        "price_above_cost",   "product_retail_price > product_cost")
 def products_parsed_vw():
-    df = spark.readStream.table("bronze_products")
+    df = spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_products")
 
     if "data" in df.columns and "product_id" not in df.columns:
         df = (

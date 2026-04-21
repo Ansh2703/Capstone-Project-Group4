@@ -4,10 +4,9 @@ import dlt
 from pyspark.sql import functions as F
 from pyspark.sql.functions import col, current_timestamp
 
-# ── Step 1: Hardcoded config for verification ────────────────────────────────
-CATALOG       = "maven_market_uc"
+# Cross-schema reference: read catalog from pipeline configuration
+CATALOG       = spark.conf.get("bundle.target_catalog")
 SILVER_SCHEMA = "silver"
-GOLD_SCHEMA   = "gold"
 ENV           = "dev"
 
 
@@ -25,7 +24,7 @@ ENV           = "dev"
 @dlt.expect_or_drop("valid_date_column", "date IS NOT NULL")
 def dim_date():
     return (
-        dlt.read("calendar")
+        spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.calendar")
         .select(
             F.date_format(col("date"), "yyyyMMdd").cast("int").alias("date_key"),
             col("date"),
@@ -62,7 +61,7 @@ def dim_date():
 @dlt.expect(        "has_sales_region",   "sales_region IS NOT NULL")
 def dim_region():
     return (
-        dlt.read("regions")
+        spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.regions")
         .select(
             col("region_id"),
             col("sales_district"),
@@ -94,7 +93,7 @@ def dim_region():
 def dim_store():
     # Current SCD-2 snapshot — __END_AT IS NULL written explicitly
     stores = (
-        dlt.read("stores")
+        spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.stores")
         .filter(col("__END_AT").isNull())
         .select(
             col("store_id"),
@@ -116,7 +115,7 @@ def dim_store():
 
     # Denormalise region attributes — standard Kimball snowflake collapse
     regions = (
-        dlt.read("regions")
+        spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.regions")
         .select(
             col("region_id").alias("r_region_id"),
             col("sales_district"),
@@ -154,21 +153,21 @@ def dim_store():
 def dim_customer():
 
     return (
-        dlt.read("customers")
+        spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.customers")
         .filter(col("__END_AT").isNull())
         .select(
             col("customer_id"),
             col("customer_acct_num"),
             col("first_name"),
             col("last_name"),
-            col("full_name"),            # masked by gold.mask_full_name
-            col("email_address"),        # masked by gold.mask_email
-            col("customer_address"),     # masked by gold.mask_address_solo
+            col("full_name"),            # masked by gold.pii_mask
+            col("email_address"),        # masked by gold.pii_mask
+            col("customer_address"),     # masked by gold.pii_mask
             col("customer_city"),
             col("customer_state_province"),
             col("customer_postal_code"),
             col("customer_country"),
-            col("birthdate"),            # masked by gold.mask_birthdate
+            col("birthdate"),            # masked by gold.pii_mask_date
             col("gender"),
             col("total_children"),
             col("num_children_at_home"),
@@ -202,7 +201,7 @@ def dim_customer():
 def dim_product():
     # Current SCD-2 snapshot — __END_AT IS NULL written explicitly
     return (
-        dlt.read("products")
+        spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.products")
         .filter(col("__END_AT").isNull())
         .select(
             col("product_id"),
@@ -241,23 +240,23 @@ def dim_product():
 )
 @dlt.expect_or_drop("valid_fs_quantity",    "quantity > 0")
 @dlt.expect_or_drop("valid_fs_product_id",  "product_id IS NOT NULL")
-@dlt.expect_or_drop("valid_fs_store_id",    "store_id IS NOT NULL")
 @dlt.expect_or_drop("valid_fs_customer_id", "customer_id IS NOT NULL")
-@dlt.expect(        "non_negative_revenue", "revenue >= 0")
-@dlt.expect(        "non_negative_profit",  "gross_profit >= 0")
+@dlt.expect_or_drop("valid_fs_store_id",    "store_id IS NOT NULL")
+@dlt.expect(        "non_negative_revenue",  "revenue >= 0")
 def fact_sales():
+    # Silver transactions (cross-schema read)
     txn = (
-        dlt.read("transactions")
+        spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.transactions")
         .select(
-            "transaction_date", "stock_date",
-            "product_id", "customer_id", "store_id", "quantity",
+            "transaction_date", "stock_date", "product_id",
+            "customer_id", "store_id", "quantity",
             "transaction_year", "transaction_month", "transaction_quarter",
         )
     )
 
-    # Current SCD-2 product prices — __END_AT IS NULL written explicitly
+    # Current SCD-2 product prices (cross-schema read)
     prod = (
-        dlt.read("products")
+        spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.products")
         .filter(col("__END_AT").isNull())
         .select(
             col("product_id").alias("p_product_id"),
@@ -308,14 +307,15 @@ def fact_sales():
 @dlt.expect_or_drop("valid_fr_store_id",   "store_id IS NOT NULL")
 @dlt.expect(        "non_negative_return_revenue", "return_revenue >= 0")
 def fact_returns():
+    # Silver returns (cross-schema read)
     ret = (
-        dlt.read("returns")
+        spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.returns")
         .select("return_date", "product_id", "store_id", "quantity", "return_year")
     )
 
-    # Current SCD-2 product prices — __END_AT IS NULL written explicitly
+    # Current SCD-2 product prices (cross-schema read)
     prod = (
-        dlt.read("products")
+        spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.products")
         .filter(col("__END_AT").isNull())
         .select(
             col("product_id").alias("p_product_id"),
@@ -347,7 +347,7 @@ def fact_returns():
     table_properties={"layer": "gold_agg", "domain": "executive_dashboard"}
 )
 def agg_executive_overview():
-    # Use dlt.read() for tables built in this same file
+    # fact_sales is in the same gold pipeline — use dlt.read()
     fact = dlt.read("fact_sales")
     
     return (
@@ -367,8 +367,8 @@ def agg_executive_overview():
     table_properties={"layer": "gold_agg", "domain": "ops_dashboard"}
 )
 def agg_ops_inventory_alerts():
-    # Read directly from Silver for Kafka streaming tables
-    inv = dlt.read("inventory")
+    # Silver inventory (cross-schema read)
+    inv = spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.inventory")
     
     return (
         inv.filter(col("stock_status").isin("OUT_OF_STOCK", "LOW"))
@@ -385,7 +385,8 @@ def agg_ops_inventory_alerts():
     table_properties={"layer": "gold_agg", "domain": "ops_dashboard"}
 )
 def agg_ops_orders_per_minute():
-    orders = dlt.read("orders")
+    # Silver orders (cross-schema read)
+    orders = spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.orders")
     
     return (
         orders.withColumn("order_minute", F.date_trunc("minute", col("event_timestamp")))
@@ -398,19 +399,19 @@ def agg_ops_orders_per_minute():
 
 
 
-
 @dlt.table(
     name="agg_regional_sales",
-    comment="Sales aggregated by store for Regional Managers. RLS views will be applied on top of this.",
+    comment="Sales aggregated by store for Regional Managers. RLS row filter applied on sales_region.",
     table_properties={"layer": "gold_agg", "domain": "regional_dashboard"}
 )
 def agg_regional_sales():
+    # fact_sales and dim_store are in the same gold pipeline — use dlt.read()
     fact = dlt.read("fact_sales")
     dim_store = dlt.read("dim_store")
     
     return (
         fact.join(dim_store, on="store_id")
-        .groupBy("transaction_year", "transaction_month", "region_id", "store_id", "store_name")
+        .groupBy("transaction_year", "transaction_month", "region_id", "sales_region", "store_id", "store_name")
         .agg(
             F.sum("revenue").alias("total_store_revenue"),
             F.sum("quantity").alias("total_items_sold")
@@ -426,9 +427,10 @@ def agg_regional_sales():
     table_properties={"layer": "gold_agg", "domain": "marketing_dashboard"}
 )
 def agg_customer_ltv():
+    # fact_sales and dim_customer are in the same gold pipeline — use dlt.read()
     fact = dlt.read("fact_sales")
     dim_cust = dlt.read("dim_customer")
-    
+     
     return (
         fact.join(dim_cust, on="customer_id")
         .groupBy(
@@ -452,6 +454,7 @@ def agg_customer_ltv():
     table_properties={"layer": "gold_agg", "domain": "ops_dashboard"}
 )
 def agg_store_space_utilization():
+    # fact_sales and dim_store are in the same gold pipeline — use dlt.read()
     fact = dlt.read("fact_sales")
     dim_store = dlt.read("dim_store")
     

@@ -1,15 +1,12 @@
 resources:
   pipelines:
-    maven_market_main:
-      name: "[${bundle.target}] Maven Market Medallion"
-      # Use the variables from databricks.yml for better flexibility
+    # ── Bronze Pipeline ──────────────────────────────────────────────────
+    maven_market_bronze:
+      name: "[${bundle.target}] Maven Market Bronze"
       catalog: ${var.target_catalog}
-      target: ${var.target_schema}
-      #for better compute
+      target: bronze
       serverless: true
 
-
-      
       libraries:
         - file:
             path: ../src/pipelines/bronze/ingest_csv.py
@@ -20,22 +17,46 @@ resources:
         - file:
             path: ../src/pipelines/bronze/ingest_mongo.py
 
+      configuration:
+        # These keys match the spark.conf.get calls in the bronze Python files
+        bundle.source_path_transactions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/transactions/"
+        bundle.source_path_regions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/regions/"
+        bundle.source_path_stores: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/stores/"
+        bundle.source_path_return: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/return/"
+        bundle.source_path_calendar: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/calendar/"
+        bundle.source_path_customers: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/customers/"
+        bundle.source_path_products: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/products/"
+
+    # ── Silver Pipeline ──────────────────────────────────────────────────
+    maven_market_silver:
+      name: "[${bundle.target}] Maven Market Silver"
+      catalog: ${var.target_catalog}
+      target: silver
+      serverless: true
+
+      libraries:
         - file:
             path: ../src/pipelines/silver/silver_csv_dlt.py
         - file:
             path: ../src/pipelines/silver/silver_kafka_dlt.py
         - file:
             path: ../src/pipelines/silver/silver_mongo_dlt.py
+
+      configuration:
+        # Passed so silver code can build FQN for cross-schema bronze reads
+        bundle.target_catalog: ${var.target_catalog}
+
+    # ── Gold Pipeline ────────────────────────────────────────────────────
+    maven_market_gold:
+      name: "[${bundle.target}] Maven Market Gold"
+      catalog: ${var.target_catalog}
+      target: gold
+      serverless: true
+
+      libraries:
         - file:
             path: ../src/pipelines/gold/gold_dlt.py
 
       configuration:
-        # These keys match the spark.conf.get calls in your new Python files
-        bundle.source_path_transactions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/transactions/"
-        bundle.source_path_regions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/regions/"
-        bundle.source_path_stores: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/stores/"
-        # Fixed key name 'return' to match the list in your ingest_csv.py
-        bundle.source_path_return: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/return/"
-        bundle.source_path_calendar: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/calendar/"
-        bundle.source_path_customers: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/customers/"
-        bundle.source_path_products: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/products/"
+        # Passed so gold code can build FQN for cross-schema silver reads
+        bundle.target_catalog: ${var.target_catalog}
