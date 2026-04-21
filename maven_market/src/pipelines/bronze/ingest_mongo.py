@@ -1,11 +1,29 @@
-import sys, os
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+import uuid
+from datetime import datetime
 import dlt
 from pyspark.sql.functions import current_timestamp, lit
-from utils.logger import PipelineLogger
+
+# ── Inline logger (avoids cross-directory import that fails in SDP) ──
+class PipelineLogger:
+    def __init__(self, spark=None, layer="unknown", pipeline="maven_market"):
+        self.spark = spark
+        self.layer = layer
+        self.pipeline = pipeline
+        self.run_id = str(uuid.uuid4())
+
+    def log(self, level, message, stage,
+            status="RUNNING", row_count=None, error=None):
+        log_entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "run_id": self.run_id, "pipeline": self.pipeline,
+            "layer": self.layer, "stage": stage, "level": level,
+            "message": message, "status": status,
+            "row_count": row_count, "error": error
+        }
+        print(f"[LOG] {log_entry}")
 
 # INIT LOGGER
-logger = PipelineLogger(spark, layer="bronze")
+logger = PipelineLogger(layer="bronze")
 
 datasets = ["customers", "products"]
 
