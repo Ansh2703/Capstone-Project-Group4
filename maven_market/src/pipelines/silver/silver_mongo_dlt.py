@@ -54,7 +54,7 @@ PRODUCTS_JSON_SCHEMA = """
 @dlt.expect(        "valid_country",       "customer_country IS NOT NULL")
 @dlt.expect(        "valid_gender",        "gender IN ('M', 'F')")
 def customers_parsed_vw():
-    df = spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_customers")
+    df = spark.readStream.table("bronze_customers")
 
     if "data" in df.columns and "customer_id" not in df.columns:
         df = (
@@ -135,7 +135,7 @@ dlt.apply_changes(
 @dlt.expect_or_drop("valid_cost",         "product_cost > 0")
 @dlt.expect(        "price_above_cost",   "product_retail_price > product_cost")
 def products_parsed_vw():
-    df = spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_products")
+    df = spark.readStream.table("bronze_products")
 
     if "data" in df.columns and "product_id" not in df.columns:
         df = (

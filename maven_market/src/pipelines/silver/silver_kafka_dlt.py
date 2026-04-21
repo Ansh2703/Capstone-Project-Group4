@@ -29,8 +29,7 @@ ENV           = "dev"
 @dlt.expect(        "has_store_id",         "store_id IS NOT NULL")
 def silver_orders():
     orders_stream = (
-        spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_orders_kafka")
+        spark.readStream.table("bronze_orders_kafka")
         .select(
             col("order_id").cast("int").alias("order_id"),
             F.to_timestamp(col("event_time")).alias("event_timestamp"),
@@ -94,8 +93,7 @@ def silver_orders():
 @dlt.expect(        "valid_event_type",      "event_type IN ('RESTOCK', 'SALE', 'ADJUSTMENT', 'RETURN')")
 def silver_inventory():
     return (
-        spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_inventory_kafka")
+        spark.readStream.table("bronze_inventory_kafka")
         .select(
             col("event_id").cast("int").alias("event_id"),
             F.to_timestamp(col("event_time")).alias("event_timestamp"),

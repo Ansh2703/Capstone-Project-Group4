@@ -32,8 +32,7 @@ def silver_transactions():
     raw_stk_date = to_date(col("stock_date"),       "M/d/yyyy")
 
     return (
-        spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_transactions")
+        spark.readStream.table("bronze_transactions")
         .select(
             raw_txn_date.alias("transaction_date"),
             raw_stk_date.alias("stock_date"),
@@ -74,8 +73,7 @@ def silver_returns():
     raw_date = to_date(col("return_date"), "M/d/yyyy")
 
     return (
-        spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_return")
+        spark.readStream.table("bronze_return")
         .select(
             raw_date.alias("return_date"),
             F.year(raw_date).alias("return_year"),
@@ -97,8 +95,7 @@ def silver_returns():
 @dlt.expect(        "has_contact",     "store_phone IS NOT NULL")
 def stores_cleaned_vw():
     return (
-        spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_stores")
+        spark.readStream.table("bronze_stores")
         .select(
             col("store_id").cast("int").alias("store_id"),
             col("region_id").cast("int").alias("region_id"),
@@ -155,8 +152,7 @@ dlt.apply_changes(
 @dlt.expect(        "has_sales_region", "sales_region IS NOT NULL")
 def regions_cleaned_vw():
     return (
-        spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_regions")
+        spark.readStream.table("bronze_regions")
         .select(
             col("region_id").cast("int").alias("region_id"),
             col("sales_district"),
@@ -204,8 +200,7 @@ def silver_calendar():
     raw_date = to_date(col("date"), "M/d/yyyy")
 
     return (
-        spark.readStream
-        .table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_calendar")
+        spark.readStream.table("bronze_calendar")
         .select(
             raw_date.alias("date"),
             F.year(raw_date).alias("year"),

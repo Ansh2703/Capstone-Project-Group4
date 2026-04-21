@@ -25,8 +25,7 @@ ENV           = "dev"
 @dlt.expect_or_drop("valid_date_column", "date IS NOT NULL")
 def dim_date():
     return (
-        spark.read
-        .table(f"{CATALOG}.{SILVER_SCHEMA}.calendar")
+        dlt.read("calendar")
         .select(
             F.date_format(col("date"), "yyyyMMdd").cast("int").alias("date_key"),
             col("date"),
@@ -63,8 +62,7 @@ def dim_date():
 @dlt.expect(        "has_sales_region",   "sales_region IS NOT NULL")
 def dim_region():
     return (
-        spark.read
-        .table(f"{CATALOG}.{SILVER_SCHEMA}.regions")
+        dlt.read("regions")
         .select(
             col("region_id"),
             col("sales_district"),
@@ -96,8 +94,7 @@ def dim_region():
 def dim_store():
     # Current SCD-2 snapshot — __END_AT IS NULL written explicitly
     stores = (
-        spark.read
-        .table(f"{CATALOG}.{SILVER_SCHEMA}.stores")
+        dlt.read("stores")
         .filter(col("__END_AT").isNull())
         .select(
             col("store_id"),
@@ -119,8 +116,7 @@ def dim_store():
 
     # Denormalise region attributes — standard Kimball snowflake collapse
     regions = (
-        spark.read
-        .table(f"{CATALOG}.{SILVER_SCHEMA}.regions")
+        dlt.read("regions")
         .select(
             col("region_id").alias("r_region_id"),
             col("sales_district"),
@@ -158,8 +154,7 @@ def dim_store():
 def dim_customer():
 
     return (
-        spark.read
-        .table(f"{CATALOG}.{SILVER_SCHEMA}.customers")
+        dlt.read("customers")
         .filter(col("__END_AT").isNull())
         .select(
             col("customer_id"),
@@ -207,8 +202,7 @@ def dim_customer():
 def dim_product():
     # Current SCD-2 snapshot — __END_AT IS NULL written explicitly
     return (
-        spark.read
-        .table(f"{CATALOG}.{SILVER_SCHEMA}.products")
+        dlt.read("products")
         .filter(col("__END_AT").isNull())
         .select(
             col("product_id"),
@@ -253,8 +247,7 @@ def dim_product():
 @dlt.expect(        "non_negative_profit",  "gross_profit >= 0")
 def fact_sales():
     txn = (
-        spark.read
-        .table(f"{CATALOG}.{SILVER_SCHEMA}.transactions")
+        dlt.read("transactions")
         .select(
             "transaction_date", "stock_date",
             "product_id", "customer_id", "store_id", "quantity",
@@ -264,8 +257,7 @@ def fact_sales():
 
     # Current SCD-2 product prices — __END_AT IS NULL written explicitly
     prod = (
-        spark.read
-        .table(f"{CATALOG}.{SILVER_SCHEMA}.products")
+        dlt.read("products")
         .filter(col("__END_AT").isNull())
         .select(
             col("product_id").alias("p_product_id"),
@@ -317,15 +309,13 @@ def fact_sales():
 @dlt.expect(        "non_negative_return_revenue", "return_revenue >= 0")
 def fact_returns():
     ret = (
-        spark.read
-        .table(f"{CATALOG}.{SILVER_SCHEMA}.returns")
+        dlt.read("returns")
         .select("return_date", "product_id", "store_id", "quantity", "return_year")
     )
 
     # Current SCD-2 product prices — __END_AT IS NULL written explicitly
     prod = (
-        spark.read
-        .table(f"{CATALOG}.{SILVER_SCHEMA}.products")
+        dlt.read("products")
         .filter(col("__END_AT").isNull())
         .select(
             col("product_id").alias("p_product_id"),
@@ -378,7 +368,7 @@ def agg_executive_overview():
 )
 def agg_ops_inventory_alerts():
     # Read directly from Silver for Kafka streaming tables
-    inv = spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.inventory")
+    inv = dlt.read("inventory")
     
     return (
         inv.filter(col("stock_status").isin("OUT_OF_STOCK", "LOW"))
@@ -395,7 +385,7 @@ def agg_ops_inventory_alerts():
     table_properties={"layer": "gold_agg", "domain": "ops_dashboard"}
 )
 def agg_ops_orders_per_minute():
-    orders = spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.orders")
+    orders = dlt.read("orders")
     
     return (
         orders.withColumn("order_minute", F.date_trunc("minute", col("event_timestamp")))
