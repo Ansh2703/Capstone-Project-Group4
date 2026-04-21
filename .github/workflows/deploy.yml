@@ -3,6 +3,8 @@ name: "Maven Market CI/CD"
 on:
   push:
     branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
   workflow_dispatch:
     inputs:
       target:
@@ -48,10 +50,11 @@ jobs:
         run: |
           python -m pytest tests/ -v --tb=short -p no:cacheprovider
 
-  # ── Step 2: Deploy only if tests pass ──
+  # ── Step 2: Deploy only if tests pass (skip on PRs — only deploy on merge) ──
   deploy:
     name: "Deploy and Run"
     needs: test
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
