@@ -29,10 +29,17 @@ def run_tests():
     Copy tests to /tmp (avoids workspace __pycache__ errors),
     run pytest, and return the exit code.
     """
-    # Paths
-    workspace_test_dir = os.path.join(
-        os.path.dirname(os.path.abspath(__file__))
-    )
+    # Resolve the test directory — __file__ is not defined on serverless compute
+    try:
+        workspace_test_dir = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        # Serverless compute runs via exec(), so __file__ doesn't exist.
+        # Fall back to cwd and look for a tests/ subdirectory.
+        workspace_test_dir = os.getcwd()
+        candidate = os.path.join(workspace_test_dir, "tests")
+        if os.path.isdir(candidate):
+            workspace_test_dir = candidate
+
     tmp_test_dir = os.path.join(tempfile.gettempdir(), "maven_market_tests")
 
     # Clean previous run
@@ -56,14 +63,20 @@ def run_tests():
 
     # Summary
     if exit_code == 0:
-        print("\n✅ ALL TESTS PASSED")
+        print("\n ALL TESTS PASSED")
     else:
-        print(f"\n❌ TESTS FAILED (exit code: {exit_code})")
+        print(f"\n TESTS FAILED (exit code: {exit_code})")
 
     return exit_code
 
 
-if __name__ == "__main__":
+# Serverless exec() doesn't set __name__ to "__main__", so handle both cases
+try:
+    _is_main = __name__ == "__main__"
+except NameError:
+    _is_main = True
+
+if _is_main:
     code = run_tests()
     # Fail the Databricks job task if tests fail
     if code != 0:
