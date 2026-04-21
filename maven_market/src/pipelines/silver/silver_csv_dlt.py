@@ -247,4 +247,6 @@ def silver_calendar():
              .otherwise(F.lit(False)).alias("is_weekend"),
             col("ingestion_time").alias("bronze_ingestion_time"),
             current_timestamp().alias("silver_ingestion_time"),
-            F.lit(
+            F.lit(ENV).alias("environment"),
+        )
+    )
