@@ -31,7 +31,6 @@ jobs:
       - name: Deploy and Trigger Pipeline
         working-directory: ./maven_market 
         run: |
-          # 1. Logic to handle both Auto-Push and Manual Button
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             TARGET="${{ github.event.inputs.target }}"
           else
@@ -40,11 +39,9 @@ jobs:
           
           echo "Processing target: $TARGET"
           
-          # 2. Deploy (This updates your cluster settings to the new node type)
-          databricks bundle deploy -t $TARGET
+          # Deploy with auto-approve to allow destructive recreation of the pipeline
+          databricks bundle deploy -t $TARGET --auto-approve
           
-          # 3. CONDITIONAL RUN: Only trigger if the user clicked the manual button
-          # This prevents a "push" from automatically wasting your 4-core quota.
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "Manual trigger detected. Starting DLT Pipeline..."
             databricks bundle run maven_market_main --refresh-all -t $TARGET

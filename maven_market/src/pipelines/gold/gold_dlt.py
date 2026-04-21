@@ -1,24 +1,24 @@
-
-
-import dlt
-from pyspark.sql import functions as F
-from pyspark.sql.functions import col, current_timestamp
-
-# Cross-schema reference: read catalog from pipeline configuration
-CATALOG       = spark.conf.get("bundle.target_catalog")
-SILVER_SCHEMA = "silver"
-ENV           = "dev"
-
-
 @dlt.table(
     name="dim_date",
-    comment="Pre-computed date dimension. date_key is integer YYYYMMDD for fast BI filtering.",
+    comment="Date dimension (YYYYMMDD keys, fiscal/calendar attributes).",
     table_properties={
-        "layer":  "gold",
-        "domain": "reference",
+        "layer":        "gold",
+        "domain":       "reference",
+        "contains_pii": "false",
         "delta.autoOptimize.optimizeWrite":  "true",
         "pipelines.autoOptimize.zOrderCols": "date_key",
     },
+)
+@dlt.expect_or_drop("valid_date_key",    "date_key IS NOT NULL")
+@dlt.expect_or_drop("valid_date_column", "date IS NOT NULL")
+def dim_date():
+    return (
+        spark.read.table(f"{CATALOG}.{SILVER_SCHEMA}.calendar")
+        .select(
+            F.date_format(col("date"), "yyyyMMdd").cast("int").alias("date_key"),
+            col("date"),
+            col("year"),
+            col("month"),
 )
 @dlt.expect_or_drop("valid_date_key",    "date_key IS NOT NULL")
 @dlt.expect_or_drop("valid_date_column", "date IS NOT NULL")
