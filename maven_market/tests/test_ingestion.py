@@ -27,7 +27,7 @@ from pyspark.sql.types import StructType, StructField, StringType
 
 # ── Skip marker for Databricks-only tests ────────────────────────────────────
 # These tests rely on ANSI strict mode (on by default in Databricks) and
-# Databricks-only functions (try_to_date, try_cast) that don't exist in
+# Databricks-only SQL functions (try_to_date, try_cast) that don't exist in
 # open-source PySpark 3.5.x.  They pass on Databricks but must be skipped in CI.
 _ON_DATABRICKS = "DATABRICKS_RUNTIME_VERSION" in os.environ
 databricks_only = pytest.mark.skipif(
@@ -345,9 +345,9 @@ def test_try_to_date_returns_null_for_invalid_input(spark):
     data = [("not-a-date",), ("",), ("13/32/2020",)]
     df = spark.createDataFrame(data, ["raw_date"])
 
-    # try_to_date is the ANSI-safe version — returns NULL instead of crashing
+    # try_to_date is a SQL-only function — must use F.expr() to call it
     result_df = df.withColumn(
-        "parsed_date", F.try_to_date(F.col("raw_date"), "M/d/yyyy")
+        "parsed_date", F.expr("try_to_date(raw_date, 'M/d/yyyy')")
     )
 
     rows = result_df.collect()
@@ -422,11 +422,11 @@ def test_try_cast_returns_null_for_invalid_values(spark):
     data = [("abc", "xyz", "not_a_number")]
     df = spark.createDataFrame(data, ["int_val", "double_val", "long_val"])
 
-    # try_cast is the ANSI-safe version of cast
+    # try_cast is a SQL-only function — must use F.expr() to call it
     result_df = df.select(
-        F.try_cast(F.col("int_val"), "int").alias("as_int"),
-        F.try_cast(F.col("double_val"), "double").alias("as_double"),
-        F.try_cast(F.col("long_val"), "long").alias("as_long"),
+        F.expr("try_cast(int_val AS int)").alias("as_int"),
+        F.expr("try_cast(double_val AS double)").alias("as_double"),
+        F.expr("try_cast(long_val AS long)").alias("as_long"),
     )
 
     row = result_df.collect()[0]
