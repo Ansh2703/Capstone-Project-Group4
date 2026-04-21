@@ -3,19 +3,31 @@ resources:
     maven_market_daily_orchestration:
       name: "[${bundle.target}] Full Project Orchestration"
 
-
-          
       tasks:
+        # ── Step 0: Run unit tests before anything else ──
+        - task_key: run_tests
+          spark_python_task:
+            python_file: ../tests/run_tests.py
+          job_cluster_key: default_cluster
+          libraries:
+            - pypi:
+                package: pytest
+
+        # ── Step 1: Bronze ingestion ──
         - task_key: run_bronze_pipeline
+          depends_on:
+            - task_key: run_tests
           pipeline_task:
             pipeline_id: ${resources.pipelines.maven_market_bronze.id}
 
+        # ── Step 2: Silver transformations ──
         - task_key: run_silver_pipeline
           depends_on:
             - task_key: run_bronze_pipeline
           pipeline_task:
             pipeline_id: ${resources.pipelines.maven_market_silver.id}
 
+        # ── Step 3: Gold aggregations ──
         - task_key: run_gold_pipeline
           depends_on:
             - task_key: run_silver_pipeline

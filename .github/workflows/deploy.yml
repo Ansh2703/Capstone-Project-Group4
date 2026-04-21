@@ -18,8 +18,40 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # ── Step 1: Run unit tests first ──
+  test:
+    name: "Run Unit Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 11 (required by PySpark)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "11"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pyspark==4.0.0.dev2 pytest
+
+      - name: Run pytest
+        working-directory: ./maven_market
+        env:
+          SPARK_REMOTE: ""
+        run: |
+          python -m pytest tests/ -v --tb=short -p no:cacheprovider
+
+  # ── Step 2: Deploy only if tests pass ──
   deploy:
     name: "Deploy and Run"
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
