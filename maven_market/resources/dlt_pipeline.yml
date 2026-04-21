@@ -31,11 +31,11 @@ resources:
 
       configuration:
         # These keys match the spark.conf.get calls in your new Python files
-        bundle.source_path_transactions: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/transactions/"
-        bundle.source_path_regions: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/regions/"
-        bundle.source_path_stores: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/stores/"
+        bundle.source_path_transactions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/transactions/"
+        bundle.source_path_regions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/regions/"
+        bundle.source_path_stores: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/stores/"
         # Fixed key name 'return' to match the list in your ingest_csv.py
-        bundle.source_path_return: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/return/"
-        bundle.source_path_calendar: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/calendar/"
-        bundle.source_path_customers: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/atlas/mongo_maven_db/customers/"
-        bundle.source_path_products: "abfss://maven-market-data@mavengrp4.dfs.core.windows.net/raw/atlas/mongo_maven_db/products/"
+        bundle.source_path_return: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/return/"
+        bundle.source_path_calendar: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/calendar/"
+        bundle.source_path_customers: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/customers/"
+        bundle.source_path_products: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/products/"
