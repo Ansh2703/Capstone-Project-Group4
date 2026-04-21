@@ -39,7 +39,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pyspark==4.0.0.dev2 pytest
+          pip install pyspark==4.0.0.dev2 pandas pyarrow pytest
 
       - name: Run pytest
         working-directory: ./maven_market

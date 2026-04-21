@@ -33,7 +33,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pyspark==4.0.0.dev2 pytest
+          pip install pyspark==4.0.0.dev2 pandas pyarrow pytest
           # Install project requirements if any exist
           if [ -s maven_market/requirements.txt ]; then
             pip install -r maven_market/requirements.txt
