@@ -91,7 +91,7 @@
 │                                                      │
 │  ┌────────────┐                                      │
 │  │ Step 0:    │  pytest via spark_python_task         │
-│  │ run_tests  │  (job cluster)                       │
+│  │ run_tests  │  (serverless compute)                │
 │  └─────┬──────┘                                      │
 │        ▼                                             │
 │  ┌─────────────────┐                                 │
@@ -187,14 +187,6 @@ Capstone-Project-Group4/
 │   └── policies/               Cluster policy JSON
 └── README.md
 ```
-
----
-
-## Cluster Permission Error
-
-The job fails with `PERMISSION_DENIED: You are not authorized to create clusters` because the `run_tests` task uses `job_cluster_key: default_cluster` which provisions a new cluster. The SDP pipeline tasks use serverless and work fine.
-
-**Fix:** Switch `run_tests` to serverless compute in `jobs.yml`.
 
 ---
 

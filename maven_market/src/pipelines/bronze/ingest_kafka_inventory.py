@@ -1,3 +1,5 @@
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 import dlt
 from pyspark.sql.functions import col, from_json, current_timestamp
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
