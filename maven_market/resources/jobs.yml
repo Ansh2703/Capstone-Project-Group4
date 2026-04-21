@@ -8,10 +8,7 @@ resources:
         - task_key: run_tests
           spark_python_task:
             python_file: ../tests/run_tests.py
-          job_cluster_key: default_cluster
-          libraries:
-            - pypi:
-                package: pytest
+          environment_key: test_env
 
         # ── Step 1: Bronze ingestion ──
         - task_key: run_bronze_pipeline
@@ -33,27 +30,10 @@ resources:
             - task_key: run_silver_pipeline
           pipeline_task:
             pipeline_id: ${resources.pipelines.maven_market_gold.id}
-        
-        # COMMENTED OUT until you actually create this file
-        # - task_key: run_audit_report
-        #   depends_on:
-        #     - task_key: run_gold_pipeline
-        #   notebook_task:
-        #     notebook_path: ../src/utils/audit_report.py
-        #     base_parameters:
-        #       config_path: ${var.config_file}
-        #   job_cluster_key: default_cluster
 
-      job_clusters:
-        - job_cluster_key: default_cluster
-          new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: "Standard_DC4as_v5"
-            num_workers: 0
-            spark_conf:
-              spark.databricks.cluster.profile: "singleNode"
-              # FIX: Required for Single Node clusters
-              spark.master: "local[*]"
-            custom_tags:
-              # FIX: Required tag for Single Node clusters
-              ResourceClass: "SingleNode"
+      # Serverless environment for Python tasks (no cluster creation needed)
+      environments:
+        - environment_key: test_env
+          spec:
+            dependencies:
+              - pytest

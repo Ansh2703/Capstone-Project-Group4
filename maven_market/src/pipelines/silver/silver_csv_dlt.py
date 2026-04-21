@@ -1,6 +1,12 @@
-
-
-
+# ---------------------------------------------------------------------------
+# Lakeflow Declarative Pipelines: Table Definitions and Descriptions
+# ---------------------------------------------------------------------------
+# transactions: Cleansed fact-sales table sourced from Bronze CSV Auto Loader.
+# returns: Cleansed returns fact table sourced from Bronze CSV Auto Loader.
+# stores: SCD Type-2 store dimension. History tracked for: total_sqft, grocery_sqft, last_remodel_date, store_type.
+# regions: SCD Type-1 region dimension. Latest hierarchy label overwrites the previous value.
+# calendar: Enriched calendar dimension with pre-computed date-part columns.
+# ---------------------------------------------------------------------------
 
 import dlt
 from pyspark.sql import functions as F
@@ -11,7 +17,10 @@ CATALOG       = spark.conf.get("bundle.target_catalog")
 BRONZE_SCHEMA = "bronze"
 ENV           = "dev"
 
-
+# ---------------------------------------------------------------------------
+# transactions table: Cleansed fact-sales table sourced from Bronze CSV Auto Loader.
+# Applies data quality expectations and enriches with date-part columns.
+# ---------------------------------------------------------------------------
 @dlt.table(
     name="transactions",
     comment="Cleansed fact-sales table sourced from Bronze CSV Auto Loader.",
@@ -55,7 +64,10 @@ def silver_transactions():
         )
     )
 
-
+# ---------------------------------------------------------------------------
+# returns table: Cleansed returns fact table sourced from Bronze CSV Auto Loader.
+# Applies data quality expectations and enriches with date-part columns.
+# ---------------------------------------------------------------------------
 @dlt.table(
     name="returns",
     comment="Cleansed returns fact table sourced from Bronze CSV Auto Loader.",
@@ -91,7 +103,10 @@ def silver_returns():
         )
     )
 
-
+# ---------------------------------------------------------------------------
+# stores_cleaned_vw view: Cleansed store dimension data for SCD Type-2 processing.
+# Applies data quality expectations.
+# ---------------------------------------------------------------------------
 @dlt.view(name="stores_cleaned_vw")
 @dlt.expect_or_fail("valid_store_pk",  "store_id IS NOT NULL")
 @dlt.expect_or_drop("valid_region_fk", "region_id IS NOT NULL")
@@ -119,7 +134,10 @@ def stores_cleaned_vw():
         )
     )
 
-
+# ---------------------------------------------------------------------------
+# stores table: SCD Type-2 store dimension.
+# Tracks history for total_sqft, grocery_sqft, last_remodel_date, store_type.
+# ---------------------------------------------------------------------------
 dlt.create_streaming_table(
     name="stores",
     comment=(
@@ -136,6 +154,7 @@ dlt.create_streaming_table(
     },
 )
 
+# Apply SCD Type-2 changes to stores table using apply_changes.
 dlt.apply_changes(
     target           = "stores",
     source           = "stores_cleaned_vw",
@@ -150,7 +169,10 @@ dlt.apply_changes(
     ],
 )
 
-
+# ---------------------------------------------------------------------------
+# regions_cleaned_vw view: Cleansed region dimension data for SCD Type-1 processing.
+# Applies data quality expectations.
+# ---------------------------------------------------------------------------
 @dlt.view(name="regions_cleaned_vw")
 @dlt.expect_or_fail("valid_region_pk", "region_id IS NOT NULL")
 @dlt.expect(        "has_sales_region", "sales_region IS NOT NULL")
@@ -166,7 +188,10 @@ def regions_cleaned_vw():
         )
     )
 
-
+# ---------------------------------------------------------------------------
+# regions table: SCD Type-1 region dimension.
+# Latest hierarchy label overwrites the previous value.
+# ---------------------------------------------------------------------------
 dlt.create_streaming_table(
     name="regions",
     comment="SCD Type-1 region dimension. Latest hierarchy label overwrites the previous value.",
@@ -179,6 +204,7 @@ dlt.create_streaming_table(
     },
 )
 
+# Apply SCD Type-1 changes to regions table using apply_changes.
 dlt.apply_changes(
     target             = "regions",
     source             = "regions_cleaned_vw",
@@ -187,7 +213,10 @@ dlt.apply_changes(
     stored_as_scd_type = 1,
 )
 
-
+# ---------------------------------------------------------------------------
+# calendar table: Enriched calendar dimension with pre-computed date-part columns.
+# Applies data quality expectations.
+# ---------------------------------------------------------------------------
 @dlt.table(
     name="calendar",
     comment="Enriched calendar dimension with pre-computed date-part columns.",
@@ -218,6 +247,4 @@ def silver_calendar():
              .otherwise(F.lit(False)).alias("is_weekend"),
             col("ingestion_time").alias("bronze_ingestion_time"),
             current_timestamp().alias("silver_ingestion_time"),
-            F.lit(ENV).alias("environment"),
-        )
-    )
+            F.lit(
