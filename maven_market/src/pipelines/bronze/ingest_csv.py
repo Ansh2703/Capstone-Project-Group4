@@ -1,6 +1,8 @@
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 import dlt
 from pyspark.sql.functions import col, current_timestamp, lit
-from logger import PipelineLogger
+from utils.logger import PipelineLogger
 
 logger = PipelineLogger(layer="bronze")
 
