@@ -27,11 +27,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Java 11 (required by PySpark)
+      - name: Set up Java 17 (required by PySpark)
         uses: actions/setup-java@v4
         with:
           distribution: "temurin"
-          java-version: "11"
+          java-version: "17"
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -41,12 +41,10 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pyspark==4.0.0.dev2 pandas pyarrow pytest
+          pip install "pyspark==3.5.3" pytest
 
       - name: Run pytest
         working-directory: ./maven_market
-        env:
-          SPARK_REMOTE: ""
         run: |
           python -m pytest tests/ -v --tb=short -p no:cacheprovider
 
