@@ -16,6 +16,12 @@ variables:
   pipelines_development:
     description: "Enable development mode for DLT"
     default: "true"
+  storage_root:
+    description: "ADLS Gen2 base path for all raw data and checkpoints"
+    default: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net"
+  kafka_bootstrap_servers:
+    description: "Confluent Cloud Kafka bootstrap servers"
+    default: "pkc-56d1g.eastus.azure.confluent.cloud:9092"
 
 # 3. Target Overrides
 targets:

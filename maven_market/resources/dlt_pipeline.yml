@@ -18,22 +18,22 @@ resources:
             path: ../src/pipelines/bronze/ingest_mongo.py
 
       configuration:
-        # These keys match the spark.conf.get calls in the bronze Python files
-        bundle.source_path_transactions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/transactions/"
-        bundle.source_path_regions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/regions/"
-        bundle.source_path_stores: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/stores/"
-        bundle.source_path_return: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/return/"
-        bundle.source_path_calendar: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/calendar/"
-        bundle.source_path_customers: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/customers/"
-        bundle.source_path_products: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/products/"
+        # ADLS source paths — built from the storage_root variable
+        bundle.source_path_transactions: "${var.storage_root}/raw/transactions/"
+        bundle.source_path_regions:      "${var.storage_root}/raw/regions/"
+        bundle.source_path_stores:       "${var.storage_root}/raw/stores/"
+        bundle.source_path_return:       "${var.storage_root}/raw/return/"
+        bundle.source_path_calendar:     "${var.storage_root}/raw/calendar/"
+        bundle.source_path_customers:    "${var.storage_root}/raw/atlas/mongo_maven_db/customers/"
+        bundle.source_path_products:     "${var.storage_root}/raw/atlas/mongo_maven_db/products/"
 
         # Kafka configuration (credentials read from Databricks Secrets at runtime)
-        bundle.kafka_bootstrap_servers: "pkc-56d1g.eastus.azure.confluent.cloud:9092"
-        bundle.kafka_orders_topic: "orders_topic"
-        bundle.kafka_inventory_topic: "inventory_topic"
-        bundle.kafka_secret_scope: "kafkaKeyVault"
-        bundle.kafka_api_key_secret: "kafka-api-key"
-        bundle.kafka_api_secret_secret: "kafka-api-secret"
+        bundle.kafka_bootstrap_servers:  "${var.kafka_bootstrap_servers}"
+        bundle.kafka_orders_topic:       "orders_topic"
+        bundle.kafka_inventory_topic:    "inventory_topic"
+        bundle.kafka_secret_scope:       "kafkaKeyVault"
+        bundle.kafka_api_key_secret:     "kafka-api-key"
+        bundle.kafka_api_secret_secret:  "kafka-api-secret"
 
     # ── Silver Pipeline ──────────────────────────────────────────────────
     maven_market_silver:

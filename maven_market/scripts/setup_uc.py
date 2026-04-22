@@ -1,12 +1,18 @@
 # scripts/setup_uc.py
-# ARCHIVE: This was used for the initial bootstrap. 
-# Ownership has been claimed in the UI. 
+# ARCHIVE: One-time bootstrap script — already executed.
+# Kept for reference only. Do NOT re-run without reviewing.
+
 from pyspark.sql import SparkSession
 spark = SparkSession.builder.getOrCreate()
 
-catalogs = ["maven_market_uc", "maven_market_dev"]
-admin_user = "rajni.jha29112001@gmail.com"
-storage_root = "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net"
+# Read current user dynamically instead of hardcoding
+admin_user = spark.sql("SELECT current_user()").collect()[0][0]
+storage_root = spark.conf.get(
+    "bundle.storage_root",
+    "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net"
+)
+
+catalogs = ["maven_market_uc", "maven_market_prod"]
 
 for catalog in catalogs:
     try:
