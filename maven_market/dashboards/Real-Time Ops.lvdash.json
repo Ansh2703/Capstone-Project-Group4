@@ -1,0 +1,857 @@
+{
+  "datasets": [
+    {
+      "name": "abef3e24",
+      "displayName": "Inventory Alerts",
+      "config": {
+        "version": "1.1",
+        "source": "-- Inventory alerts from Gold aggregation, enriched with product/store names\nSELECT\n  a.store_id,\n  a.product_id,\n  a.stock_status,\n  a.last_alert_time,\n  a.lowest_stock_level,\n  p.product_name,\n  p.product_brand,\n  s.store_name,\n  s.store_city\nFROM maven_market_uc.gold.agg_ops_inventory_alerts a\nLEFT JOIN maven_market_uc.gold.dim_product p\n  ON a.product_id = p.product_id\nLEFT JOIN maven_market_uc.gold.dim_store s\n  ON a.store_id = s.store_id",
+        "dimensions": [
+          {
+            "name": "store_id",
+            "expr": "source.store_id",
+            "displayName": "Store Id"
+          },
+          {
+            "name": "product_id",
+            "expr": "source.product_id",
+            "displayName": "Product Id"
+          },
+          {
+            "name": "stock_status",
+            "expr": "source.stock_status",
+            "displayName": "Stock Status",
+            "comment": "Alert classification — LOW or OUT_OF_STOCK"
+          },
+          {
+            "name": "last_alert_time",
+            "expr": "source.last_alert_time",
+            "displayName": "Last Alert Time"
+          },
+          {
+            "name": "lowest_stock_level",
+            "expr": "source.lowest_stock_level",
+            "displayName": "Lowest Stock Level"
+          },
+          {
+            "name": "product_name",
+            "expr": "source.product_name",
+            "displayName": "Product Name"
+          },
+          {
+            "name": "product_brand",
+            "expr": "source.product_brand",
+            "displayName": "Product Brand"
+          },
+          {
+            "name": "store_name",
+            "expr": "source.store_name",
+            "displayName": "Store Name"
+          },
+          {
+            "name": "store_city",
+            "expr": "source.store_city",
+            "displayName": "Store City"
+          }
+        ],
+        "measures": [
+          {
+            "name": "count",
+            "expr": "COUNT(*)",
+            "displayName": "Alert Count",
+            "comment": "Total number of inventory alerts"
+          }
+        ]
+      }
+    },
+    {
+      "name": "533f5bcb",
+      "displayName": "orders",
+      "config": {
+        "version": "1.1",
+        "source": "-- Orders enriched with per-minute throughput metrics\nSELECT\n  o.store_id,\n  o.order_id,\n  o.event_timestamp,\n  o.product_id,\n  o.customer_id,\n  o.quantity,\n  o.order_date,\n  o.order_year,\n  o.order_month,\n  o.store_city,\n  o.store_state,\n  o.region_id,\n  m.order_minute,\n  m.orders_per_minute,\n  m.total_quantity_per_minute\nFROM maven_market_uc.silver.orders o\nLEFT JOIN maven_market_uc.gold.agg_ops_orders_per_minute m\n  ON o.store_id = m.store_id\n  AND date_trunc('minute', o.event_timestamp) = m.order_minute",
+        "dimensions": [
+          {
+            "name": "order_id",
+            "expr": "source.order_id",
+            "displayName": "Order Id",
+            "comment": "Unique identifier for each order event"
+          },
+          {
+            "name": "event_timestamp",
+            "expr": "source.event_timestamp",
+            "displayName": "Event Timestamp",
+            "comment": "Timestamp when the order was received from Kafka"
+          },
+          {
+            "name": "event_minute",
+            "expr": "DATE_TRUNC('MINUTE', source.event_timestamp)",
+            "displayName": "Event Minute",
+            "comment": "Timestamp truncated to the minute — use for per-minute streaming charts"
+          },
+          {
+            "name": "event_hour",
+            "expr": "DATE_TRUNC('HOUR', source.event_timestamp)",
+            "displayName": "Event Hour",
+            "comment": "Timestamp truncated to the hour — use for hourly trend charts"
+          },
+          {
+            "name": "product_id",
+            "expr": "source.product_id",
+            "displayName": "Product Id"
+          },
+          {
+            "name": "store_id",
+            "expr": "source.store_id",
+            "displayName": "Store Id"
+          },
+          {
+            "name": "customer_id",
+            "expr": "source.customer_id",
+            "displayName": "Customer Id"
+          },
+          {
+            "name": "quantity",
+            "expr": "source.quantity",
+            "displayName": "Quantity",
+            "comment": "Number of units ordered per line item"
+          },
+          {
+            "name": "order_date",
+            "expr": "source.order_date",
+            "displayName": "Order Date"
+          },
+          {
+            "name": "order_year",
+            "expr": "source.order_year",
+            "displayName": "Order Year"
+          },
+          {
+            "name": "order_month",
+            "expr": "source.order_month",
+            "displayName": "Order Month"
+          },
+          {
+            "name": "store_city",
+            "expr": "source.store_city",
+            "displayName": "Store City",
+            "comment": "City of the store that received the order"
+          },
+          {
+            "name": "store_state",
+            "expr": "source.store_state",
+            "displayName": "Store State",
+            "comment": "State/province of the store"
+          },
+          {
+            "name": "region_id",
+            "expr": "source.region_id",
+            "displayName": "Region Id"
+          }
+        ],
+        "measures": [
+          {
+            "name": "count",
+            "expr": "COUNT(*)",
+            "displayName": "Total Orders",
+            "comment": "Total number of order events — primary throughput metric"
+          },
+          {
+            "name": "orders_per_minute",
+            "expr": "COUNT(*) / NULLIF(TIMESTAMPDIFF(MINUTE, MIN(source.event_timestamp), MAX(source.event_timestamp)), 0)",
+            "displayName": "Orders Per Minute",
+            "comment": "Average order throughput rate"
+          },
+          {
+            "name": "total_quantity",
+            "expr": "SUM(source.quantity)",
+            "displayName": "Total Quantity",
+            "comment": "Sum of all units ordered"
+          },
+          {
+            "name": "latest_event",
+            "expr": "MAX(source.event_timestamp)",
+            "displayName": "Latest Event",
+            "comment": "Timestamp of the most recent order event — data freshness indicator"
+          }
+        ]
+      }
+    },
+    {
+      "name": "1c207ea6",
+      "displayName": "inventory",
+      "config": {
+        "version": "1.1",
+        "source": "-- Inventory events with stock health classification\nSELECT\n  event_id,\n  event_timestamp,\n  product_id,\n  store_id,\n  stock_level,\n  event_type,\n  stock_status,\n  silver_ingestion_time\nFROM maven_market_uc.silver.inventory",
+        "dimensions": [
+          {
+            "name": "event_id",
+            "expr": "source.event_id",
+            "displayName": "Event Id",
+            "comment": "Unique identifier for each inventory event"
+          },
+          {
+            "name": "event_timestamp",
+            "expr": "source.event_timestamp",
+            "displayName": "Event Timestamp",
+            "comment": "Timestamp when the inventory event occurred"
+          },
+          {
+            "name": "product_id",
+            "expr": "source.product_id",
+            "displayName": "Product Id"
+          },
+          {
+            "name": "store_id",
+            "expr": "source.store_id",
+            "displayName": "Store Id"
+          },
+          {
+            "name": "stock_level",
+            "expr": "source.stock_level",
+            "displayName": "Stock Level",
+            "comment": "Current stock quantity for the product at the store"
+          },
+          {
+            "name": "event_type",
+            "expr": "source.event_type",
+            "displayName": "Event Type",
+            "comment": "Type of inventory event — RESTOCK, SALE, ADJUSTMENT, or RETURN"
+          },
+          {
+            "name": "stock_status",
+            "expr": "source.stock_status",
+            "displayName": "Stock Status",
+            "comment": "Health classification — HEALTHY, MEDIUM, LOW, or OUT_OF_STOCK"
+          },
+          {
+            "name": "silver_ingestion_time",
+            "expr": "source.silver_ingestion_time",
+            "displayName": "Silver Ingestion Time"
+          }
+        ],
+        "measures": [
+          {
+            "name": "count",
+            "expr": "COUNT(*)",
+            "displayName": "Event Count",
+            "comment": "Total number of inventory events — used for status distribution charts"
+          },
+          {
+            "name": "avg_stock_level",
+            "expr": "AVG(source.stock_level)",
+            "displayName": "Avg Stock Level",
+            "comment": "Average stock level across all events — indicates overall inventory health"
+          }
+        ]
+      }
+    }
+  ],
+  "pages": [
+    {
+      "name": "4731936c",
+      "displayName": "Real-Time Ops",
+      "layout": [
+        {
+          "widget": {
+            "name": "total-orders",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "533f5bcb",
+                  "fields": [
+                    {
+                      "name": "measure(count)",
+                      "expression": "MEASURE(`count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Total Orders",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(count)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Total Orders"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "orders_per_min",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "533f5bcb",
+                  "fields": [
+                    {
+                      "name": "measure(orders_per_minute)",
+                      "expression": "MEASURE(`orders_per_minute`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Orders / Minute",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(orders_per_minute)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    },
+                    "abbreviation": "none"
+                  },
+                  "displayName": "Orders Per Minute"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "low_stock",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "1c207ea6",
+                  "fields": [
+                    {
+                      "name": "measure(count)",
+                      "expression": "MEASURE(`count`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`stock_status` IN ('LOW', 'OUT_OF_STOCK')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Low Stock Alerts",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(count)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "none"
+                  },
+                  "style": {
+                    "rules": [
+                      {
+                        "condition": {
+                          "operand": {
+                            "type": "data-value",
+                            "value": "50"
+                          },
+                          "operator": ">"
+                        },
+                        "color": "#FF9800"
+                      },
+                      {
+                        "condition": {
+                          "operand": {
+                            "type": "data-value",
+                            "value": "100"
+                          },
+                          "operator": ">"
+                        },
+                        "color": "#D32F2F"
+                      }
+                    ]
+                  },
+                  "displayName": "Event Count"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "out_of_stock",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "1c207ea6",
+                  "fields": [
+                    {
+                      "name": "measure(count)",
+                      "expression": "MEASURE(`count`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`stock_status` IN ('OUT_OF_STOCK')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Out of Stock",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(count)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "none"
+                  },
+                  "style": {
+                    "rules": [
+                      {
+                        "condition": {
+                          "operand": {
+                            "type": "data-value",
+                            "value": "0"
+                          },
+                          "operator": ">"
+                        },
+                        "color": "#D32F2F"
+                      }
+                    ]
+                  },
+                  "displayName": "Event Count"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 2,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "orders_over_time",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "533f5bcb",
+                  "fields": [
+                    {
+                      "name": "event_minute",
+                      "expression": "`event_minute`"
+                    },
+                    {
+                      "name": "measure(count)",
+                      "expression": "MEASURE(`count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Orders Per Minute (Streaming)",
+                "showTitle": true
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "event_minute",
+                  "axis": {
+                    "hideTitle": true
+                  },
+                  "displayName": "Minute",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(count)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Order Count",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "inventory_status",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "1c207ea6",
+                  "fields": [
+                    {
+                      "name": "stock_status",
+                      "expression": "`stock_status`"
+                    },
+                    {
+                      "name": "measure(count)",
+                      "expression": "MEASURE(`count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Inventory by Status",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "stock_status",
+                  "displayName": "Stock Status",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(count)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "none"
+                  },
+                  "displayName": "Event Count",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "stock_status",
+                  "legend": {
+                    "hide": true
+                  },
+                  "displayName": "Stock Status",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "HEALTHY",
+                        "color": "#4CAF50"
+                      },
+                      {
+                        "value": "MEDIUM",
+                        "color": "#FF9800"
+                      },
+                      {
+                        "value": "LOW",
+                        "color": "#FF5722"
+                      },
+                      {
+                        "value": "OUT_OF_STOCK",
+                        "color": "#D32F2F"
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 5,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "orders_by_store",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "533f5bcb",
+                  "fields": [
+                    {
+                      "name": "store_state",
+                      "expression": "`store_state`"
+                    },
+                    {
+                      "name": "store_city",
+                      "expression": "`store_city`"
+                    },
+                    {
+                      "name": "measure(count)",
+                      "expression": "MEASURE(`count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Orders by Store City",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "store_city",
+                  "displayName": "Store City",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(count)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Order Count",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "store_state",
+                  "legend": {
+                    "position": "bottom"
+                  },
+                  "displayName": "Store State",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "alert_details",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "abef3e24",
+                  "fields": [
+                    {
+                      "name": "product_name",
+                      "expression": "`product_name`"
+                    },
+                    {
+                      "name": "product_brand",
+                      "expression": "`product_brand`"
+                    },
+                    {
+                      "name": "store_name",
+                      "expression": "`store_name`"
+                    },
+                    {
+                      "name": "store_city",
+                      "expression": "`store_city`"
+                    },
+                    {
+                      "name": "stock_status",
+                      "expression": "`stock_status`"
+                    },
+                    {
+                      "name": "lowest_stock_level",
+                      "expression": "`lowest_stock_level`"
+                    },
+                    {
+                      "name": "last_alert_time",
+                      "expression": "`last_alert_time`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Inventory Alert Details",
+                "showTitle": true
+              },
+              "rowsPerPage": 25,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "product_name",
+                    "displayName": "Product Name"
+                  },
+                  {
+                    "fieldName": "product_brand",
+                    "displayName": "Product Brand"
+                  },
+                  {
+                    "fieldName": "store_name",
+                    "displayName": "Store Name"
+                  },
+                  {
+                    "fieldName": "store_city",
+                    "displayName": "Store City"
+                  },
+                  {
+                    "fieldName": "stock_status",
+                    "displayName": "Status"
+                  },
+                  {
+                    "fieldName": "lowest_stock_level",
+                    "displayName": "Lowest Stock"
+                  },
+                  {
+                    "fieldName": "last_alert_time",
+                    "displayName": "Last Alert"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 12,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "streaming_header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## ⚡ Real-Time Operations Monitor\n",
+                "**Kafka Streaming Pipeline**: `Confluent Cloud` → `bronze_orders_kafka` (Streaming Table) → `silver.orders` → Dashboard &nbsp; | &nbsp; `bronze_inventory_kafka` (Streaming Table) → `silver.inventory` → Dashboard"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}

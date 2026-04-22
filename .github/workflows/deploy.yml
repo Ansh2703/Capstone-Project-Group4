@@ -76,8 +76,8 @@ jobs:
           databricks bundle deploy -t $TARGET --auto-approve
           
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "Manual trigger detected. Starting DLT Pipeline..."
-            databricks bundle run maven_market_main --refresh-all -t $TARGET
+            echo "Manual trigger detected. Starting orchestration job..."
+            databricks bundle run maven_market_daily_orchestration -t $TARGET
           else
             echo "Auto-push detected. Code deployed, but pipeline NOT started to save quota."
           fi

@@ -1,9 +1,9 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import dlt
 from pyspark.sql.functions import col, current_timestamp, lit
 
-# ── Inline logger (avoids cross-directory import that fails in SDP) ──
+# ── Inline logger (DLT-safe, print-only — avoids cross-directory import) ──
 class PipelineLogger:
     def __init__(self, spark=None, layer="unknown", pipeline="maven_market"):
         self.spark = spark
@@ -13,14 +13,24 @@ class PipelineLogger:
 
     def log(self, level, message, stage,
             status="RUNNING", row_count=None, error=None):
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         log_entry = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "run_id": self.run_id, "pipeline": self.pipeline,
-            "layer": self.layer, "stage": stage, "level": level,
-            "message": message, "status": status,
-            "row_count": row_count, "error": error
+            "timestamp": ts, "run_id": self.run_id,
+            "pipeline": self.pipeline, "layer": self.layer,
+            "stage": stage, "level": level, "message": message,
+            "status": status, "row_count": row_count, "error": error,
         }
         print(f"[LOG] {log_entry}")
+
+    def info(self, message, stage, **kw):
+        self.log("INFO", message, stage, **kw)
+
+    def warn(self, message, stage, **kw):
+        self.log("WARN", message, stage, **kw)
+
+    def error(self, message, stage, **kw):
+        self.log("ERROR", message, stage, **kw)
+
 
 logger = PipelineLogger(layer="bronze")
 
@@ -37,7 +47,7 @@ def create_bronze_table(dataset_name):
     )
     def table_definition():
 
-        logger.log("INFO", "Starting ingestion", stage)
+        logger.info("Starting ingestion", stage)
 
         try:
             source_path = spark.conf.get(f"bundle.source_path_{dataset_name}")
@@ -53,15 +63,15 @@ def create_bronze_table(dataset_name):
                 .withColumn("source_name", lit(dataset_name))
             )
 
-            logger.log("INFO", "Transformation defined", stage, status="SUCCESS")
+            logger.info("Transformation defined", stage, status="SUCCESS")
             return df
 
         except Exception as e:
-            logger.log("ERROR", "Ingestion failed", stage, status="FAILED", error=str(e))
+            logger.error("Ingestion failed", stage, status="FAILED", error=str(e))
             raise
 
 
 for dataset in datasets:
     create_bronze_table(dataset)
 
-logger.log("INFO", "All Bronze CSV tables registered", stage="bronze_pipeline")
+logger.info("All Bronze CSV tables registered", stage="bronze_pipeline")

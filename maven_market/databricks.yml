@@ -27,6 +27,7 @@ targets:
       root_path: ~/.bundle/${bundle.name}/dev
     variables:
       target_catalog: "maven_market_uc"
+      config_file: "${workspace.file_path}/config/dev_config.yaml"
       pipelines_development: "true"
 
   main:
@@ -37,5 +38,6 @@ targets:
     run_as:
       service_principal_name: "5e35aeb2-73b1-4dd2-92cf-ae0e4829bb65"
     variables:
-      target_catalog: "maven_market_uc"
+      target_catalog: "maven_market_prod"
+      config_file: "${workspace.file_path}/config/prod_config.yaml"
       pipelines_development: "false"

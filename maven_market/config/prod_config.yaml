@@ -1,0 +1,30 @@
+environment: "prod"
+catalog: "maven_market_prod"
+storage_root: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/"
+
+schemas:
+  bronze: "bronze"
+  silver: "silver"
+  gold: "gold"
+  audit: "audit"
+
+paths:
+  landing_zone: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/"
+  csv_landing: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/transactions/"
+  metastore_root: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/unity-catalog/metastore"
+  transactions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/transactions/"
+  regions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/regions/"
+  stores: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/stores/"
+  return: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/return/"
+  calendar: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/calendar/"
+  customers: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/customers/"
+  products: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/products/"
+
+checkpoints:
+  transactions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/transactions/"
+  regions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/regions/"
+  stores: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/stores/"
+  return: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/return/"
+  calendar: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/calendar/"
+  customers: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/customers/"
+  products: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/products/"

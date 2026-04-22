@@ -27,6 +27,14 @@ resources:
         bundle.source_path_customers: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/customers/"
         bundle.source_path_products: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/products/"
 
+        # Kafka configuration (credentials read from Databricks Secrets at runtime)
+        bundle.kafka_bootstrap_servers: "pkc-56d1g.eastus.azure.confluent.cloud:9092"
+        bundle.kafka_orders_topic: "orders_topic"
+        bundle.kafka_inventory_topic: "inventory_topic"
+        bundle.kafka_secret_scope: "kafkaKeyVault"
+        bundle.kafka_api_key_secret: "kafka-api-key"
+        bundle.kafka_api_secret_secret: "kafka-api-secret"
+
     # ── Silver Pipeline ──────────────────────────────────────────────────
     maven_market_silver:
       name: "[${bundle.target}] Maven Market Silver"
@@ -45,6 +53,8 @@ resources:
       configuration:
         # Passed so silver code can build FQN for cross-schema bronze reads
         bundle.target_catalog: ${var.target_catalog}
+        bundle.bronze_schema: "bronze"
+        bundle.environment: ${bundle.target}
 
     # ── Gold Pipeline ────────────────────────────────────────────────────
     maven_market_gold:
@@ -60,3 +70,4 @@ resources:
       configuration:
         # Passed so gold code can build FQN for cross-schema silver reads
         bundle.target_catalog: ${var.target_catalog}
+        bundle.silver_schema: "silver"

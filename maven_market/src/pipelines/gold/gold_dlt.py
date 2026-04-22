@@ -35,7 +35,7 @@ from pyspark.sql.functions import col, current_timestamp
 
 # Cross-schema reference: read catalog from pipeline configuration
 CATALOG       = spark.conf.get("bundle.target_catalog")
-SILVER_SCHEMA = "silver"
+SILVER_SCHEMA = spark.conf.get("bundle.silver_schema")
 
 @dlt.table(
     name="dim_date",

@@ -4,8 +4,8 @@ from pyspark.sql.functions import col, current_timestamp
 
 # Cross-schema reference: read catalog from pipeline configuration
 CATALOG       = spark.conf.get("bundle.target_catalog")
-BRONZE_SCHEMA = "bronze"
-ENV           = "dev"
+BRONZE_SCHEMA = spark.conf.get("bundle.bronze_schema")
+ENV           = spark.conf.get("bundle.environment")
 
 
 @dlt.table(

@@ -1,9 +1,9 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import dlt
 from pyspark.sql.functions import current_timestamp, lit
 
-# ── Inline logger (avoids cross-directory import that fails in SDP) ──
+# ── Inline logger (DLT-safe, print-only — avoids cross-directory import) ──
 class PipelineLogger:
     def __init__(self, spark=None, layer="unknown", pipeline="maven_market"):
         self.spark = spark
@@ -13,16 +13,25 @@ class PipelineLogger:
 
     def log(self, level, message, stage,
             status="RUNNING", row_count=None, error=None):
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         log_entry = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "run_id": self.run_id, "pipeline": self.pipeline,
-            "layer": self.layer, "stage": stage, "level": level,
-            "message": message, "status": status,
-            "row_count": row_count, "error": error
+            "timestamp": ts, "run_id": self.run_id,
+            "pipeline": self.pipeline, "layer": self.layer,
+            "stage": stage, "level": level, "message": message,
+            "status": status, "row_count": row_count, "error": error,
         }
         print(f"[LOG] {log_entry}")
 
-# INIT LOGGER
+    def info(self, message, stage, **kw):
+        self.log("INFO", message, stage, **kw)
+
+    def warn(self, message, stage, **kw):
+        self.log("WARN", message, stage, **kw)
+
+    def error(self, message, stage, **kw):
+        self.log("ERROR", message, stage, **kw)
+
+
 logger = PipelineLogger(layer="bronze")
 
 datasets = ["customers", "products"]
@@ -38,7 +47,7 @@ def create_mongo_bronze(dataset_name):
     )
     def mongo_definition():
 
-        logger.log("INFO", "Starting Mongo ingestion", stage)
+        logger.info("Starting Mongo ingestion", stage)
 
         try:
             # Fetch path from config
@@ -51,28 +60,16 @@ def create_mongo_bronze(dataset_name):
                 .withColumn("source", lit(dataset_name))
             )
 
-            logger.log(
-                "INFO",
-                "Mongo stream transformation defined",
-                stage,
-                status="SUCCESS"
-            )
+            logger.info("Mongo stream transformation defined", stage, status="SUCCESS")
 
             return df
 
         except Exception as e:
-            logger.log(
-                "ERROR",
-                "Mongo ingestion failed",
-                stage,
-                status="FAILED",
-                error=str(e)
-            )
+            logger.error("Mongo ingestion failed", stage, status="FAILED", error=str(e))
             raise
 
 # CREATE TABLES
 for dataset in datasets:
     create_mongo_bronze(dataset)
 
-# Optional pipeline-level log
-logger.log("INFO", "All Mongo Bronze tables registered", stage="bronze_mongo_pipeline")
+logger.info("All Mongo Bronze tables registered", stage="bronze_mongo_pipeline")
