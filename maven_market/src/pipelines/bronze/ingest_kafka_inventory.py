@@ -1,37 +1,13 @@
-import uuid
-from datetime import datetime, timezone
+import sys
+
+# Project root injected via pipeline configuration (bundle.project_root = ${workspace.file_path})
+sys.path.insert(0, spark.conf.get("bundle.project_root"))
+
+from src.utils.logger import PipelineLogger
+
 import dlt
 from pyspark.sql.functions import col, from_json, current_timestamp
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
-
-# ── Inline logger (DLT-safe, print-only — avoids cross-directory import) ──
-class PipelineLogger:
-    def __init__(self, spark=None, layer="unknown", pipeline="maven_market"):
-        self.spark = spark
-        self.layer = layer
-        self.pipeline = pipeline
-        self.run_id = str(uuid.uuid4())
-
-    def log(self, level, message, stage,
-            status="RUNNING", row_count=None, error=None):
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        log_entry = {
-            "timestamp": ts, "run_id": self.run_id,
-            "pipeline": self.pipeline, "layer": self.layer,
-            "stage": stage, "level": level, "message": message,
-            "status": status, "row_count": row_count, "error": error,
-        }
-        print(f"[LOG] {log_entry}")
-
-    def info(self, message, stage, **kw):
-        self.log("INFO", message, stage, **kw)
-
-    def warn(self, message, stage, **kw):
-        self.log("WARN", message, stage, **kw)
-
-    def error(self, message, stage, **kw):
-        self.log("ERROR", message, stage, **kw)
-
 
 logger = PipelineLogger(layer="bronze")
 
@@ -40,55 +16,45 @@ logger = PipelineLogger(layer="bronze")
     comment="Ingesting inventory updates from Kafka"
 )
 def bronze_inventory_kafka():
+    logger.info("Starting Kafka inventory ingestion", stage="bronze_inventory_kafka")
 
-    stage = "bronze_inventory_kafka"
+    # Read Kafka settings from pipeline configuration (set in dlt_pipeline.yml)
+    bootstrap_servers = spark.conf.get("bundle.kafka_bootstrap_servers")
+    topic             = spark.conf.get("bundle.kafka_inventory_topic")
+    secret_scope      = spark.conf.get("bundle.kafka_secret_scope")
+    api_key_secret    = spark.conf.get("bundle.kafka_api_key_secret")
+    api_secret_secret = spark.conf.get("bundle.kafka_api_secret_secret")
 
-    logger.info("Starting Kafka ingestion", stage)
+    # Retrieve credentials from Databricks Secrets (never store in code)
+    API_KEY    = dbutils.secrets.get(scope=secret_scope, key=api_key_secret)
+    API_SECRET = dbutils.secrets.get(scope=secret_scope, key=api_secret_secret)
 
-    try:
-        # Read Kafka settings from pipeline configuration (set in dlt_pipeline.yml)
-        bootstrap_servers = spark.conf.get("bundle.kafka_bootstrap_servers")
-        topic             = spark.conf.get("bundle.kafka_inventory_topic")
-        secret_scope      = spark.conf.get("bundle.kafka_secret_scope")
-        api_key_secret    = spark.conf.get("bundle.kafka_api_key_secret")
-        api_secret_secret = spark.conf.get("bundle.kafka_api_secret_secret")
+    schema = StructType([
+        StructField("event_id", IntegerType()),
+        StructField("event_time", StringType()),
+        StructField("product_id", IntegerType()),
+        StructField("store_id", IntegerType()),
+        StructField("stock_level", IntegerType()),
+        StructField("event_type", StringType())
+    ])
 
-        # Retrieve credentials from Databricks Secrets (never store in code)
-        API_KEY    = dbutils.secrets.get(scope=secret_scope, key=api_key_secret)
-        API_SECRET = dbutils.secrets.get(scope=secret_scope, key=api_secret_secret)
+    logger.info("Kafka inventory transformation defined", stage="bronze_inventory_kafka", status="SUCCESS")
 
-        schema = StructType([
-            StructField("event_id", IntegerType()),
-            StructField("event_time", StringType()),
-            StructField("product_id", IntegerType()),
-            StructField("store_id", IntegerType()),
-            StructField("stock_level", IntegerType()),
-            StructField("event_type", StringType())
-        ])
-
-        df = (
-            spark.readStream
-            .format("kafka")
-            .option("kafka.bootstrap.servers", bootstrap_servers)
-            .option("subscribe", topic)
-            .option("kafka.security.protocol", "SASL_SSL")
-            .option("kafka.sasl.mechanism", "PLAIN")
-            .option(
-                "kafka.sasl.jaas.config",
-                f'kafkashaded.org.apache.kafka.common.security.plain.PlainLoginModule required username="{API_KEY}" password="{API_SECRET}";'
-            )
-            .option("startingOffsets", "earliest")
-            .load()
-            .selectExpr("CAST(value AS STRING)")
-            .select(from_json(col("value"), schema).alias("data"))
-            .select("data.*")
-            .withColumn("ingestion_time", current_timestamp())
+    return (
+        spark.readStream
+        .format("kafka")
+        .option("kafka.bootstrap.servers", bootstrap_servers)
+        .option("subscribe", topic)
+        .option("kafka.security.protocol", "SASL_SSL")
+        .option("kafka.sasl.mechanism", "PLAIN")
+        .option(
+            "kafka.sasl.jaas.config",
+            f'kafkashaded.org.apache.kafka.common.security.plain.PlainLoginModule required username="{API_KEY}" password="{API_SECRET}";'
         )
-
-        logger.info("Kafka stream transformation defined", stage, status="SUCCESS")
-
-        return df
-
-    except Exception as e:
-        logger.error("Kafka ingestion failed", stage, status="FAILED", error=str(e))
-        raise
+        .option("startingOffsets", "earliest")
+        .load()
+        .selectExpr("CAST(value AS STRING)")
+        .select(from_json(col("value"), schema).alias("data"))
+        .select("data.*")
+        .withColumn("ingestion_time", current_timestamp())
+    )

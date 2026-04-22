@@ -1,36 +1,24 @@
 {
-  "cluster_type": {
-    "type": "fixed",
-    "value": "all-purpose"
-  },
-  "autotermination_minutes": {
+  "num_workers": {
     "type": "range",
-    "maxValue": 30,
-    "defaultValue": 30
-  },
-  "spark_version": {
-    "type": "fixed",
-    "value": "15.4.x-scala2.12",
-    "hidden": false
-  },
-  "node_type_id": {
-    "type": "fixed",
-    "value": "Standard_DC4as_v5"
-  },
-  "driver_node_type_id": {
-    "type": "fixed",
-    "value": "Standard_DC4as_v5"
+    "defaultValue": 1,
+    "maxValue": 2
   },
   "spark_conf.spark.databricks.cluster.profile": {
     "type": "fixed",
     "value": "singleNode"
   },
-  "custom_tags.Project": {
+  "spark_conf.spark.master": {
+    "type": "fixed",
+    "value": "local[*]"
+  },
+  "autotermination_minutes": {
+    "type": "range",
+    "defaultValue": 30,
+    "maxValue": 30
+  },
+  "custom_tags.maven_project": {
     "type": "fixed",
     "value": "maven_market"
-  },
-  "num_workers": {
-    "type": "fixed",
-    "value": 0
   }
 }

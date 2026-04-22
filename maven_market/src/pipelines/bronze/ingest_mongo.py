@@ -1,36 +1,12 @@
-import uuid
-from datetime import datetime, timezone
+import sys
+
+# Project root injected via pipeline configuration (bundle.project_root = ${workspace.file_path})
+sys.path.insert(0, spark.conf.get("bundle.project_root"))
+
+from src.utils.logger import PipelineLogger
+
 import dlt
 from pyspark.sql.functions import current_timestamp, lit
-
-# ── Inline logger (DLT-safe, print-only — avoids cross-directory import) ──
-class PipelineLogger:
-    def __init__(self, spark=None, layer="unknown", pipeline="maven_market"):
-        self.spark = spark
-        self.layer = layer
-        self.pipeline = pipeline
-        self.run_id = str(uuid.uuid4())
-
-    def log(self, level, message, stage,
-            status="RUNNING", row_count=None, error=None):
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        log_entry = {
-            "timestamp": ts, "run_id": self.run_id,
-            "pipeline": self.pipeline, "layer": self.layer,
-            "stage": stage, "level": level, "message": message,
-            "status": status, "row_count": row_count, "error": error,
-        }
-        print(f"[LOG] {log_entry}")
-
-    def info(self, message, stage, **kw):
-        self.log("INFO", message, stage, **kw)
-
-    def warn(self, message, stage, **kw):
-        self.log("WARN", message, stage, **kw)
-
-    def error(self, message, stage, **kw):
-        self.log("ERROR", message, stage, **kw)
-
 
 logger = PipelineLogger(layer="bronze")
 
@@ -39,37 +15,26 @@ datasets = ["customers", "products"]
 def create_mongo_bronze(dataset_name):
 
     table_name = f"bronze_{dataset_name}"
-    stage = table_name
 
     @dlt.table(
         name=table_name,
         comment=f"Ingesting MongoDB data for {dataset_name}"
     )
     def mongo_definition():
+        logger.info(f"Starting Mongo ingestion for {dataset_name}", stage=table_name)
 
-        logger.info("Starting Mongo ingestion", stage)
+        # Fetch path from config
+        source_path = spark.conf.get(f"bundle.source_path_{dataset_name}")
 
-        try:
-            # Fetch path from config
-            source_path = spark.conf.get(f"bundle.source_path_{dataset_name}")
-
-            df = (
-                spark.readStream.format("delta")
-                .load(source_path)
-                .withColumn("ingestion_time", current_timestamp())
-                .withColumn("source", lit(dataset_name))
-            )
-
-            logger.info("Mongo stream transformation defined", stage, status="SUCCESS")
-
-            return df
-
-        except Exception as e:
-            logger.error("Mongo ingestion failed", stage, status="FAILED", error=str(e))
-            raise
+        return (
+            spark.readStream.format("delta")
+            .load(source_path)
+            .withColumn("ingestion_time", current_timestamp())
+            .withColumn("source", lit(dataset_name))
+        )
 
 # CREATE TABLES
 for dataset in datasets:
     create_mongo_bronze(dataset)
 
-logger.info("All Mongo Bronze tables registered", stage="bronze_mongo_pipeline")
+logger.info("All Mongo Bronze tables registered", stage="bronze_mongo_pipeline", status="SUCCESS")

@@ -18,6 +18,9 @@ resources:
             path: ../src/pipelines/bronze/ingest_mongo.py
 
       configuration:
+        # Project root for Python imports (src.utils.logger, etc.)
+        bundle.project_root: "${workspace.file_path}"
+
         # ADLS source paths — built from the storage_root variable
         bundle.source_path_transactions: "${var.storage_root}/raw/transactions/"
         bundle.source_path_regions:      "${var.storage_root}/raw/regions/"
@@ -51,6 +54,8 @@ resources:
             path: ../src/pipelines/silver/silver_mongo_dlt.py
 
       configuration:
+        # Project root for Python imports (src.utils.logger, etc.)
+        bundle.project_root: "${workspace.file_path}"
         # Passed so silver code can build FQN for cross-schema bronze reads
         bundle.target_catalog: ${var.target_catalog}
         bundle.bronze_schema: "bronze"
@@ -68,6 +73,8 @@ resources:
             path: ../src/pipelines/gold/gold_dlt.py
 
       configuration:
+        # Project root for Python imports (src.utils.logger, etc.)
+        bundle.project_root: "${workspace.file_path}"
         # Passed so gold code can build FQN for cross-schema silver reads
         bundle.target_catalog: ${var.target_catalog}
         bundle.silver_schema: "silver"
