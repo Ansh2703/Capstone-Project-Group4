@@ -1,11 +1,46 @@
+import uuid
+from datetime import datetime, timezone
 import dlt
 from pyspark.sql import functions as F
 from pyspark.sql.functions import col, to_date, current_timestamp
+
+# ── Inline logger (DLT-safe, print-only — avoids cross-directory import) ──
+class PipelineLogger:
+    def __init__(self, spark=None, layer="unknown", pipeline="maven_market"):
+        self.spark = spark
+        self.layer = layer
+        self.pipeline = pipeline
+        self.run_id = str(uuid.uuid4())
+
+    def log(self, level, message, stage,
+            status="RUNNING", row_count=None, error=None):
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        log_entry = {
+            "timestamp": ts, "run_id": self.run_id,
+            "pipeline": self.pipeline, "layer": self.layer,
+            "stage": stage, "level": level, "message": message,
+            "status": status, "row_count": row_count, "error": error,
+        }
+        print(f"[LOG] {log_entry}")
+
+    def info(self, message, stage, **kw):
+        self.log("INFO", message, stage, **kw)
+
+    def warn(self, message, stage, **kw):
+        self.log("WARN", message, stage, **kw)
+
+    def error(self, message, stage, **kw):
+        self.log("ERROR", message, stage, **kw)
+
+
+logger = PipelineLogger(layer="silver")
 
 # Cross-schema reference: read catalog from pipeline configuration
 CATALOG       = spark.conf.get("bundle.target_catalog")
 BRONZE_SCHEMA = spark.conf.get("bundle.bronze_schema")
 ENV           = spark.conf.get("bundle.environment")
+
+logger.info("Silver Mongo pipeline starting", stage="silver_mongo_init", status="RUNNING")
 
 CUSTOMERS_JSON_SCHEMA = """
     STRUCT<
@@ -54,43 +89,53 @@ PRODUCTS_JSON_SCHEMA = """
 @dlt.expect(        "valid_country",       "customer_country IS NOT NULL")
 @dlt.expect(        "valid_gender",        "gender IN ('M', 'F')")
 def customers_parsed_vw():
-    df = spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_customers")
+    logger.info("Starting customers JSON parsing view", stage="silver_customers_vw")
+    try:
+        df = spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_customers")
 
-    if "data" in df.columns and "customer_id" not in df.columns:
-        df = (
-            df.withColumn("_parsed", F.from_json(col("data"), CUSTOMERS_JSON_SCHEMA))
-              .select("_parsed.*", "ingestion_time")
+        if "data" in df.columns and "customer_id" not in df.columns:
+            logger.info("Detected nested JSON 'data' column — parsing", stage="silver_customers_vw")
+            df = (
+                df.withColumn("_parsed", F.from_json(col("data"), CUSTOMERS_JSON_SCHEMA))
+                  .select("_parsed.*", "ingestion_time")
+            )
+
+        result = (
+            df.select(
+                col("customer_id").cast("int").alias("customer_id"),
+                col("customer_acct_num"),
+                col("first_name"),
+                col("last_name"),
+                F.concat_ws(" ", col("first_name"), col("last_name")).alias("full_name"),
+                col("email_address"),
+                col("customer_address"),
+                col("customer_city"),
+                col("customer_state_province"),
+                col("customer_postal_code"),
+                col("customer_country"),
+                to_date(col("birthdate"),      "M/d/yyyy").alias("birthdate"),
+                to_date(col("acct_open_date"), "M/d/yyyy").alias("acct_open_date"),
+                col("marital_status"),
+                col("yearly_income"),
+                col("member_card"),
+                col("occupation"),
+                col("homeowner"),
+                col("gender"),
+                col("total_children").cast("int").alias("total_children"),
+                col("num_children_at_home").cast("int").alias("num_children_at_home"),
+                col("education"),
+                col("ingestion_time").alias("bronze_ingestion_time"),
+                F.lit(ENV).alias("environment"),
+            )
         )
+        logger.info("Customers parsing view defined", stage="silver_customers_vw", status="SUCCESS")
+        return result
+    except Exception as e:
+        logger.error("Customers parsing view failed", stage="silver_customers_vw", status="FAILED", error=str(e))
+        raise
 
-    return (
-        df.select(
-            col("customer_id").cast("int").alias("customer_id"),
-            col("customer_acct_num"),
-            col("first_name"),
-            col("last_name"),
-            F.concat_ws(" ", col("first_name"), col("last_name")).alias("full_name"),
-            col("email_address"),
-            col("customer_address"),
-            col("customer_city"),
-            col("customer_state_province"),
-            col("customer_postal_code"),
-            col("customer_country"),
-            to_date(col("birthdate"),      "M/d/yyyy").alias("birthdate"),
-            to_date(col("acct_open_date"), "M/d/yyyy").alias("acct_open_date"),
-            col("marital_status"),
-            col("yearly_income"),
-            col("member_card"),
-            col("occupation"),
-            col("homeowner"),
-            col("gender"),
-            col("total_children").cast("int").alias("total_children"),
-            col("num_children_at_home").cast("int").alias("num_children_at_home"),
-            col("education"),
-            col("ingestion_time").alias("bronze_ingestion_time"),
-            F.lit(ENV).alias("environment"),
-        )
-    )
 
+logger.info("Registering customers SCD Type-2 streaming table", stage="silver_customers")
 
 dlt.create_streaming_table(
     name="customers",
@@ -128,6 +173,8 @@ dlt.apply_changes(
     ],
 )
 
+logger.info("Customers SCD Type-2 apply_changes registered", stage="silver_customers", status="SUCCESS")
+
 
 @dlt.view(name="products_parsed_vw")
 @dlt.expect_or_fail("valid_product_pk",   "product_id IS NOT NULL")
@@ -135,35 +182,45 @@ dlt.apply_changes(
 @dlt.expect_or_drop("valid_cost",         "product_cost > 0")
 @dlt.expect(        "price_above_cost",   "product_retail_price > product_cost")
 def products_parsed_vw():
-    df = spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_products")
+    logger.info("Starting products JSON parsing view", stage="silver_products_vw")
+    try:
+        df = spark.readStream.table(f"{CATALOG}.{BRONZE_SCHEMA}.bronze_products")
 
-    if "data" in df.columns and "product_id" not in df.columns:
-        df = (
-            df.withColumn("_parsed", F.from_json(col("data"), PRODUCTS_JSON_SCHEMA))
-              .select("_parsed.*", "ingestion_time")
+        if "data" in df.columns and "product_id" not in df.columns:
+            logger.info("Detected nested JSON 'data' column — parsing", stage="silver_products_vw")
+            df = (
+                df.withColumn("_parsed", F.from_json(col("data"), PRODUCTS_JSON_SCHEMA))
+                  .select("_parsed.*", "ingestion_time")
+            )
+
+        result = (
+            df.select(
+                col("product_id").cast("int").alias("product_id"),
+                col("product_brand"),
+                col("product_name"),
+                col("product_sku").cast("long").alias("product_sku"),
+                col("product_retail_price").cast("double").alias("product_retail_price"),
+                col("product_cost").cast("double").alias("product_cost"),
+                col("product_weight").cast("double").alias("product_weight"),
+                col("recyclable").cast("boolean").alias("recyclable"),
+                col("low_fat").cast("boolean").alias("low_fat"),
+                F.round(
+                    (col("product_retail_price").cast("double") - col("product_cost").cast("double"))
+                    / col("product_retail_price").cast("double") * 100,
+                    2,
+                ).alias("margin_pct"),
+                col("ingestion_time").alias("bronze_ingestion_time"),
+                F.lit(ENV).alias("environment"),
+            )
         )
+        logger.info("Products parsing view defined", stage="silver_products_vw", status="SUCCESS")
+        return result
+    except Exception as e:
+        logger.error("Products parsing view failed", stage="silver_products_vw", status="FAILED", error=str(e))
+        raise
 
-    return (
-        df.select(
-            col("product_id").cast("int").alias("product_id"),
-            col("product_brand"),
-            col("product_name"),
-            col("product_sku").cast("long").alias("product_sku"),
-            col("product_retail_price").cast("double").alias("product_retail_price"),
-            col("product_cost").cast("double").alias("product_cost"),
-            col("product_weight").cast("double").alias("product_weight"),
-            col("recyclable").cast("boolean").alias("recyclable"),
-            col("low_fat").cast("boolean").alias("low_fat"),
-            F.round(
-                (col("product_retail_price").cast("double") - col("product_cost").cast("double"))
-                / col("product_retail_price").cast("double") * 100,
-                2,
-            ).alias("margin_pct"),
-            col("ingestion_time").alias("bronze_ingestion_time"),
-            F.lit(ENV).alias("environment"),
-        )
-    )
 
+logger.info("Registering products SCD Type-2 streaming table", stage="silver_products")
 
 dlt.create_streaming_table(
     name="products",
@@ -194,3 +251,6 @@ dlt.apply_changes(
         "low_fat",
     ],
 )
+
+logger.info("Products SCD Type-2 apply_changes registered", stage="silver_products", status="SUCCESS")
+logger.info("All Silver Mongo tables registered", stage="silver_mongo_pipeline", status="SUCCESS")
