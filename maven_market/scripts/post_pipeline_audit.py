@@ -196,6 +196,26 @@ def audit_single_pipeline(spark, pipeline_id, layer, run_id, ts):
         }
 
 
+# ── Explicit schema for audit records (avoids CANNOT_DETERMINE_TYPE) ──
+AUDIT_SCHEMA = StructType([
+    StructField("layer",              StringType(),  True),
+    StructField("pipeline_id",        StringType(),  True),
+    StructField("update_id",          StringType(),  True),
+    StructField("status",             StringType(),  True),
+    StructField("started_at",         StringType(),  True),
+    StructField("ended_at",           StringType(),  True),
+    StructField("duration_seconds",   IntegerType(), True),
+    StructField("tables_processed",   IntegerType(), True),
+    StructField("total_rows_written", LongType(),    True),
+    StructField("total_rows_dropped", LongType(),    True),
+    StructField("dq_violations",      IntegerType(), True),
+    StructField("errors_found",       IntegerType(), True),
+    StructField("error_details",      StringType(),  True),
+    StructField("run_id",             StringType(),  True),
+    StructField("audit_logged_at",    StringType(),  True),
+])
+
+
 def main():
     catalog = sys.argv[1] if len(sys.argv) > 1 else "maven_market_uc"
     audit_table = f"{catalog}.audit.pipeline_audit_log"
@@ -243,8 +263,17 @@ def main():
         "audit_logged_at": ts.strftime("%Y-%m-%d %H:%M:%S"),
     })
 
-    # ── Write to Delta ───────────────────────────────────────────────
-    audit_df = spark.createDataFrame(audit_records)
+    # ── Convert None integers to 0 to avoid type issues ──────────────
+    for rec in audit_records:
+        for int_field in ["duration_seconds", "tables_processed", "dq_violations", "errors_found"]:
+            if rec.get(int_field) is None:
+                rec[int_field] = 0
+        for long_field in ["total_rows_written", "total_rows_dropped"]:
+            if rec.get(long_field) is None:
+                rec[long_field] = 0
+
+    # ── Write to Delta with explicit schema ──────────────────────────
+    audit_df = spark.createDataFrame(audit_records, schema=AUDIT_SCHEMA)
     audit_df.write.format("delta").mode("append").option("mergeSchema", "true").saveAsTable(audit_table)
 
     print(f"\n[AUDIT] ═══════════════════════════════════════════════")
