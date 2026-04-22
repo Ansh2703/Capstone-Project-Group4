@@ -1,16 +1,16 @@
 """
-post_pipeline_audit.py — Post-pipeline audit logging task.
+post_pipeline_audit.py — Custom Logging for Maven Market Pipelines.
 
 Runs as the FINAL task in the orchestration job (after gold pipeline).
-Queries the Lakeflow Declarative Pipeline event_log() for each layer to
-capture real metrics:
-  - Pipeline update status (COMPLETED / FAILED / CANCELED)
-  - Per-table row counts (rows written per flow)
-  - Data quality violations (expectation pass/fail counts)
-  - Error details (if any flow failed)
-  - Pipeline start/end timestamps and duration
+Extracts structured custom log entries from each pipeline's event_log()
+and writes them to the centralized audit table: {catalog}.audit.audit_logs.
 
-Writes structured audit records to {catalog}.audit.pipeline_audit_log.
+Custom logs captured per layer:
+  - Pipeline start / completion status
+  - Per-table flow progress (table name, rows written, rows dropped)
+  - Per-table data quality expectations (expectation name, passed/failed)
+  - Error details (if any flow or update failed)
+  - Pipeline timing (start, end, duration)
 
 Usage (from jobs.yml):
     spark_python_task:
@@ -21,67 +21,97 @@ Usage (from jobs.yml):
 import sys
 import uuid
 from datetime import datetime, timezone
-from pyspark.sql import SparkSession, Row
+from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.functions import col, get_json_object
+from pyspark.sql.functions import col, get_json_object, lit, to_timestamp
 from pyspark.sql.types import (
-    StructType, StructField, StringType, TimestampType, LongType, IntegerType,
+    StructType, StructField, StringType, TimestampType, LongType,
 )
 
 
 # ── Pipeline IDs (set via bundle or hardcode per environment) ────────
-# These are resolved at deploy time by Databricks Asset Bundles.
-# Update these if pipeline IDs change after redeployment.
 PIPELINE_IDS = {
     "bronze": "7cbdfbb8-29e8-4bf1-b2de-20abc21418f1",
     "silver": None,   # TODO: populate after first silver pipeline deploy
     "gold":   None,   # TODO: populate after first gold pipeline deploy
 }
 
+# ── Target table schema (matches audit.audit_logs) ──────────────────
+AUDIT_LOG_SCHEMA = StructType([
+    StructField("timestamp",  TimestampType(), True),
+    StructField("run_id",     StringType(),    True),
+    StructField("pipeline",   StringType(),    True),
+    StructField("layer",      StringType(),    True),
+    StructField("stage",      StringType(),    True),
+    StructField("level",      StringType(),    True),
+    StructField("message",    StringType(),    True),
+    StructField("status",     StringType(),    True),
+    StructField("row_count",  LongType(),      True),
+    StructField("error",      StringType(),    True),
+])
 
-def audit_single_pipeline(spark, pipeline_id, layer, run_id, ts):
+
+def extract_custom_logs(spark, pipeline_id, layer, run_id):
     """
-    Query event_log() for a single pipeline and return an audit summary dict.
-    Returns None if the pipeline ID is not set or event log is empty.
+    Query event_log() for a single pipeline and extract structured
+    custom log entries for: flow progress, data quality, and errors.
+    Returns a list of dicts matching the audit_logs schema.
     """
+    logs = []
+    ts_now = datetime.now(timezone.utc)
+
     if not pipeline_id:
-        print(f"[AUDIT] Skipping {layer} — pipeline ID not configured.")
-        return {
-            "layer": layer, "pipeline_id": "NOT_CONFIGURED",
-            "update_id": None, "status": "SKIPPED",
-            "started_at": None, "ended_at": None, "duration_seconds": None,
-            "tables_processed": 0, "total_rows_written": 0,
-            "total_rows_dropped": 0, "dq_violations": 0,
-            "errors_found": 0, "error_details": None,
-        }
+        logs.append({
+            "timestamp": ts_now,
+            "run_id": run_id, "pipeline": "maven_market",
+            "layer": layer, "stage": "pipeline_config",
+            "level": "WARN",
+            "message": f"{layer} pipeline ID not configured — skipping audit extraction",
+            "status": "SKIPPED", "row_count": None, "error": None,
+        })
+        return logs
 
     try:
-        event_log = spark.sql(f"SELECT * FROM event_log('{pipeline_id}')")
+        event_log = spark.sql(f"SELECT * FROM event_log(\'{pipeline_id}\')")
 
-        # ── Latest update ID ─────────────────────────────────────────
+        # ── Find latest update ───────────────────────────────────────
         latest_update = (
             event_log
             .filter(col("event_type") == "create_update")
             .orderBy(col("timestamp").desc())
-            .select("origin.update_id")
+            .select("origin.update_id", "timestamp")
             .first()
         )
 
         if latest_update is None:
-            print(f"[AUDIT] No updates found for {layer} pipeline.")
-            return {
-                "layer": layer, "pipeline_id": pipeline_id,
-                "update_id": None, "status": "NO_UPDATES",
-                "started_at": None, "ended_at": None, "duration_seconds": None,
-                "tables_processed": 0, "total_rows_written": 0,
-                "total_rows_dropped": 0, "dq_violations": 0,
-                "errors_found": 0, "error_details": None,
-            }
+            logs.append({
+                "timestamp": ts_now,
+                "run_id": run_id, "pipeline": "maven_market",
+                "layer": layer, "stage": "pipeline_update",
+                "level": "WARN",
+                "message": f"No updates found in event log for {layer} pipeline",
+                "status": "NO_UPDATES", "row_count": None, "error": None,
+            })
+            return logs
 
         update_id = latest_update["update_id"]
         latest_events = event_log.filter(col("origin.update_id") == update_id)
 
-        # ── Pipeline status ──────────────────────────────────────────
+        # ── 1. Pipeline start/end timing ─────────────────────────────
+        start_ts = latest_events.agg(F.min("timestamp")).first()[0]
+        end_ts = latest_events.agg(F.max("timestamp")).first()[0]
+        duration = int((end_ts - start_ts).total_seconds()) if start_ts and end_ts else 0
+
+        logs.append({
+            "timestamp": start_ts or ts_now,
+            "run_id": run_id, "pipeline": "maven_market",
+            "layer": layer, "stage": "pipeline_start",
+            "level": "INFO",
+            "message": f"{layer.upper()} pipeline started (update_id: {update_id})",
+            "status": "RUNNING", "row_count": None, "error": None,
+        })
+
+        # ── 2. Pipeline completion status ────────────────────────────
         status_row = (
             latest_events
             .filter(col("event_type") == "update_progress")
@@ -97,191 +127,215 @@ def audit_single_pipeline(spark, pipeline_id, layer, run_id, ts):
         if status_row:
             details_str = status_row["details"]
             if "COMPLETED" in details_str:
-                status = "COMPLETED"
+                pipeline_status = "COMPLETED"
             elif "FAILED" in details_str:
-                status = "FAILED"
+                pipeline_status = "FAILED"
             elif "CANCELED" in details_str:
-                status = "CANCELED"
+                pipeline_status = "CANCELED"
             else:
-                status = "UNKNOWN"
+                pipeline_status = "UNKNOWN"
         else:
-            status = "IN_PROGRESS"
+            pipeline_status = "IN_PROGRESS"
 
-        # ── Timing ───────────────────────────────────────────────────
-        start_ts = latest_events.agg(F.min("timestamp")).first()[0]
-        end_ts = latest_events.agg(F.max("timestamp")).first()[0]
-        duration = None
-        if start_ts and end_ts:
-            duration = int((end_ts - start_ts).total_seconds())
+        logs.append({
+            "timestamp": end_ts or ts_now,
+            "run_id": run_id, "pipeline": "maven_market",
+            "layer": layer, "stage": "pipeline_complete",
+            "level": "INFO" if pipeline_status == "COMPLETED" else "ERROR",
+            "message": f"{layer.upper()} pipeline {pipeline_status} in {duration}s",
+            "status": pipeline_status, "row_count": None, "error": None,
+        })
 
-        # ── Per-table row counts ─────────────────────────────────────
-        flow_progress = (
+        # ── 3. Per-table flow progress (rows written / dropped) ──────
+        flow_rows = (
             latest_events
             .filter(col("event_type") == "flow_progress")
             .filter(col("details").contains("COMPLETED"))
             .select(
+                col("timestamp"),
+                get_json_object(col("details"), "$.flow_progress.flow_name").alias("table_name"),
                 get_json_object(col("details"), "$.flow_progress.metrics.num_output_rows")
                     .cast("long").alias("rows_written"),
                 get_json_object(col("details"), "$.flow_progress.data_quality.dropped_records")
                     .cast("long").alias("dropped_records"),
-                get_json_object(col("details"), "$.flow_progress.flow_name")
-                    .alias("table_name"),
+                get_json_object(col("details"), "$.flow_progress.status").alias("flow_status"),
             )
+            .collect()
         )
 
-        total_rows = flow_progress.agg(
-            F.coalesce(F.sum("rows_written"), F.lit(0)).alias("total_rows")
-        ).first()["total_rows"]
+        for row in flow_rows:
+            table_name = row["table_name"] or "unknown"
+            rows_written = row["rows_written"] or 0
+            dropped = row["dropped_records"] or 0
 
-        total_dropped = flow_progress.agg(
-            F.coalesce(F.sum("dropped_records"), F.lit(0)).alias("total_dropped")
-        ).first()["total_dropped"]
+            logs.append({
+                "timestamp": row["timestamp"],
+                "run_id": run_id, "pipeline": "maven_market",
+                "layer": layer, "stage": f"flow_{table_name}",
+                "level": "INFO",
+                "message": f"Table '{table_name}' completed: {rows_written} rows written, {dropped} rows dropped",
+                "status": "SUCCESS", "row_count": rows_written, "error": None,
+            })
 
-        tables_processed = flow_progress.select("table_name").distinct().count()
+            if dropped and dropped > 0:
+                logs.append({
+                    "timestamp": row["timestamp"],
+                    "run_id": run_id, "pipeline": "maven_market",
+                    "layer": layer, "stage": f"dq_drop_{table_name}",
+                    "level": "WARN",
+                    "message": f"Table '{table_name}': {dropped} rows dropped by data quality expectations",
+                    "status": "DQ_DROP", "row_count": dropped, "error": None,
+                })
 
-        # ── Data quality violations ──────────────────────────────────
-        dq_events = (
+        # ── 4. Data quality expectations ─────────────────────────────
+        dq_rows = (
             latest_events
             .filter(col("event_type") == "flow_progress")
             .select(
-                get_json_object(col("details"), "$.flow_progress.data_quality.expectations")
-                    .alias("expectations"),
+                col("timestamp"),
+                get_json_object(col("details"), "$.flow_progress.flow_name").alias("table_name"),
+                get_json_object(col("details"), "$.flow_progress.data_quality.expectations").alias("expectations"),
             )
             .filter(col("expectations").isNotNull())
+            .collect()
         )
-        dq_violation_count = dq_events.count()
 
-        # ── Errors ───────────────────────────────────────────────────
-        errors_df = (
+        for row in dq_rows:
+            table_name = row["table_name"] or "unknown"
+            expectations_json = row["expectations"]
+
+            logs.append({
+                "timestamp": row["timestamp"],
+                "run_id": run_id, "pipeline": "maven_market",
+                "layer": layer, "stage": f"dq_expectations_{table_name}",
+                "level": "INFO",
+                "message": f"Data quality expectations for '{table_name}': {expectations_json[:500]}",
+                "status": "DQ_CHECK", "row_count": None, "error": None,
+            })
+
+        # ── 5. Errors ────────────────────────────────────────────────
+        error_rows = (
             latest_events
             .filter(
                 col("event_type").isin("flow_progress", "update_progress") &
-                (col("details").contains("FAILED") | col("details").contains("error"))
+                (col("details").contains("FAILED") | col("details").contains('"error"'))
             )
-            .select(col("details"))
+            .select(
+                col("timestamp"),
+                col("event_type"),
+                get_json_object(col("details"), "$.flow_progress.flow_name").alias("table_name"),
+                col("details"),
+            )
+            .collect()
         )
-        error_count = errors_df.count()
-        error_details = None
-        if error_count > 0:
-            first_error = errors_df.first()
-            error_details = str(first_error["details"])[:2000]  # truncate
 
-        # ── Print summary ────────────────────────────────────────────
-        print(f"[AUDIT] {layer}: status={status}, tables={tables_processed}, "
-              f"rows={total_rows}, dropped={total_dropped}, errors={error_count}")
+        for row in error_rows:
+            table_name = row["table_name"] or "pipeline"
+            error_detail = str(row["details"])[:2000]
 
-        return {
-            "layer": layer, "pipeline_id": pipeline_id,
-            "update_id": update_id, "status": status,
-            "started_at": str(start_ts) if start_ts else None,
-            "ended_at": str(end_ts) if end_ts else None,
-            "duration_seconds": duration,
-            "tables_processed": int(tables_processed),
-            "total_rows_written": int(total_rows),
-            "total_rows_dropped": int(total_dropped),
-            "dq_violations": int(dq_violation_count),
-            "errors_found": int(error_count),
-            "error_details": error_details,
-        }
+            logs.append({
+                "timestamp": row["timestamp"],
+                "run_id": run_id, "pipeline": "maven_market",
+                "layer": layer, "stage": f"error_{table_name}",
+                "level": "ERROR",
+                "message": f"Error in '{table_name}': {error_detail[:200]}",
+                "status": "FAILED", "row_count": None, "error": error_detail,
+            })
+
+        # ── Summary log ──────────────────────────────────────────────
+        total_rows = sum(r["rows_written"] or 0 for r in flow_rows)
+        total_tables = len(flow_rows)
+
+        logs.append({
+            "timestamp": end_ts or ts_now,
+            "run_id": run_id, "pipeline": "maven_market",
+            "layer": layer, "stage": "pipeline_summary",
+            "level": "INFO",
+            "message": f"{layer.upper()} summary: {total_tables} tables, {total_rows} total rows, status={pipeline_status}, duration={duration}s",
+            "status": pipeline_status, "row_count": total_rows, "error": None,
+        })
+
+        print(f"[AUDIT] {layer}: extracted {len(logs)} custom log entries")
+        return logs
 
     except Exception as e:
-        print(f"[AUDIT] ERROR auditing {layer}: {e}")
-        return {
-            "layer": layer, "pipeline_id": pipeline_id,
-            "update_id": None, "status": "AUDIT_ERROR",
-            "started_at": None, "ended_at": None, "duration_seconds": None,
-            "tables_processed": 0, "total_rows_written": 0,
-            "total_rows_dropped": 0, "dq_violations": 0,
-            "errors_found": 1, "error_details": str(e)[:2000],
-        }
-
-
-# ── Explicit schema for audit records (avoids CANNOT_DETERMINE_TYPE) ──
-AUDIT_SCHEMA = StructType([
-    StructField("layer",              StringType(),  True),
-    StructField("pipeline_id",        StringType(),  True),
-    StructField("update_id",          StringType(),  True),
-    StructField("status",             StringType(),  True),
-    StructField("started_at",         StringType(),  True),
-    StructField("ended_at",           StringType(),  True),
-    StructField("duration_seconds",   IntegerType(), True),
-    StructField("tables_processed",   IntegerType(), True),
-    StructField("total_rows_written", LongType(),    True),
-    StructField("total_rows_dropped", LongType(),    True),
-    StructField("dq_violations",      IntegerType(), True),
-    StructField("errors_found",       IntegerType(), True),
-    StructField("error_details",      StringType(),  True),
-    StructField("run_id",             StringType(),  True),
-    StructField("audit_logged_at",    StringType(),  True),
-])
+        print(f"[AUDIT] ERROR extracting {layer} logs: {e}")
+        logs.append({
+            "timestamp": ts_now,
+            "run_id": run_id, "pipeline": "maven_market",
+            "layer": layer, "stage": "audit_extraction",
+            "level": "ERROR",
+            "message": f"Failed to extract custom logs for {layer}: {str(e)[:200]}",
+            "status": "AUDIT_ERROR", "row_count": None, "error": str(e)[:2000],
+        })
+        return logs
 
 
 def main():
     catalog = sys.argv[1] if len(sys.argv) > 1 else "maven_market_uc"
-    audit_table = f"{catalog}.audit.pipeline_audit_log"
-    audit_schema = f"{catalog}.audit"
+    audit_table = f"{catalog}.audit.audit_logs"
+    audit_schema_name = f"{catalog}.audit"
 
     spark = SparkSession.builder.getOrCreate()
     run_id = str(uuid.uuid4())
-    ts = datetime.now(timezone.utc)
 
-    print(f"[AUDIT] Starting post-pipeline audit — run_id: {run_id}")
-    print(f"[AUDIT] Target: {audit_table}")
+    print(f"[AUDIT] ═══════════════════════════════════════════════")
+    print(f"[AUDIT] Custom Logging — Post-Pipeline Audit")
+    print(f"[AUDIT] Run ID:  {run_id}")
+    print(f"[AUDIT] Target:  {audit_table}")
+    print(f"[AUDIT] ═══════════════════════════════════════════════")
 
-    # ── Ensure audit schema and table exist ──────────────────────────
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {audit_schema}")
+    # ── Ensure audit schema exists ───────────────────────────────────
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {audit_schema_name}")
 
-    # ── Audit each pipeline layer ────────────────────────────────────
-    audit_records = []
+    # ── Extract custom logs from each pipeline layer ─────────────────
+    all_logs = []
     for layer, pipeline_id in PIPELINE_IDS.items():
-        result = audit_single_pipeline(spark, pipeline_id, layer, run_id, ts)
-        result["run_id"] = run_id
-        result["audit_logged_at"] = ts.strftime("%Y-%m-%d %H:%M:%S")
-        audit_records.append(result)
+        print(f"\n[AUDIT] Processing {layer} layer...")
+        layer_logs = extract_custom_logs(spark, pipeline_id, layer, run_id)
+        all_logs.extend(layer_logs)
+        print(f"[AUDIT] {layer}: {len(layer_logs)} log entries extracted")
 
-    # ── Also write an orchestration-level summary ────────────────────
-    all_statuses = [r["status"] for r in audit_records]
-    overall_status = "COMPLETED" if all(s == "COMPLETED" for s in all_statuses if s not in ("SKIPPED",)) else "PARTIAL_FAILURE"
-    total_rows_all = sum(r["total_rows_written"] for r in audit_records)
-    total_errors_all = sum(r["errors_found"] for r in audit_records)
+    # ── Add orchestration-level summary ──────────────────────────────
+    ts_now = datetime.now(timezone.utc)
+    layer_statuses = {}
+    for log in all_logs:
+        if log["stage"] == "pipeline_complete":
+            layer_statuses[log["layer"]] = log["status"]
 
-    audit_records.append({
-        "layer": "orchestration",
-        "pipeline_id": "ALL",
-        "update_id": None,
-        "status": overall_status,
-        "started_at": audit_records[0].get("started_at"),
-        "ended_at": audit_records[-2].get("ended_at") if len(audit_records) > 1 else None,
-        "duration_seconds": None,
-        "tables_processed": sum(r["tables_processed"] for r in audit_records[:-1]),
-        "total_rows_written": total_rows_all,
-        "total_rows_dropped": sum(r["total_rows_dropped"] for r in audit_records[:-1]),
-        "dq_violations": sum(r["dq_violations"] for r in audit_records[:-1]),
-        "errors_found": total_errors_all,
-        "error_details": None,
-        "run_id": run_id,
-        "audit_logged_at": ts.strftime("%Y-%m-%d %H:%M:%S"),
+    active_statuses = [s for s in layer_statuses.values() if s != "SKIPPED"]
+    overall = "COMPLETED" if all(s == "COMPLETED" for s in active_statuses) else "PARTIAL_FAILURE" if active_statuses else "NO_PIPELINES"
+
+    all_logs.append({
+        "timestamp": ts_now,
+        "run_id": run_id, "pipeline": "maven_market",
+        "layer": "orchestration", "stage": "job_complete",
+        "level": "INFO",
+        "message": f"Full orchestration {overall}: bronze={layer_statuses.get('bronze', 'N/A')}, silver={layer_statuses.get('silver', 'N/A')}, gold={layer_statuses.get('gold', 'N/A')}",
+        "status": overall, "row_count": len(all_logs), "error": None,
     })
 
-    # ── Convert None integers to 0 to avoid type issues ──────────────
-    for rec in audit_records:
-        for int_field in ["duration_seconds", "tables_processed", "dq_violations", "errors_found"]:
-            if rec.get(int_field) is None:
-                rec[int_field] = 0
-        for long_field in ["total_rows_written", "total_rows_dropped"]:
-            if rec.get(long_field) is None:
-                rec[long_field] = 0
+    # ── Write all custom logs to Delta ───────────────────────────────
+    if not all_logs:
+        print("[AUDIT] No log entries to write.")
+        return
 
-    # ── Write to Delta with explicit schema ──────────────────────────
-    audit_df = spark.createDataFrame(audit_records, schema=AUDIT_SCHEMA)
+    audit_df = spark.createDataFrame(all_logs, schema=AUDIT_LOG_SCHEMA)
     audit_df.write.format("delta").mode("append").option("mergeSchema", "true").saveAsTable(audit_table)
 
+    # ── Final report ─────────────────────────────────────────────────
+    log_counts = {}
+    for log in all_logs:
+        layer = log["layer"]
+        log_counts[layer] = log_counts.get(layer, 0) + 1
+
     print(f"\n[AUDIT] ═══════════════════════════════════════════════")
-    print(f"[AUDIT] Flushed {len(audit_records)} audit records to {audit_table}")
-    print(f"[AUDIT] Run ID:          {run_id}")
-    print(f"[AUDIT] Overall Status:  {overall_status}")
-    print(f"[AUDIT] Total Rows:      {total_rows_all}")
-    print(f"[AUDIT] Total Errors:    {total_errors_all}")
+    print(f"[AUDIT] Custom Logging Complete")
+    print(f"[AUDIT] Total entries written: {len(all_logs)}")
+    for layer, count in log_counts.items():
+        print(f"[AUDIT]   {layer}: {count} entries")
+    print(f"[AUDIT] Target table: {audit_table}")
+    print(f"[AUDIT] Overall status: {overall}")
     print(f"[AUDIT] ═══════════════════════════════════════════════")
 
 
