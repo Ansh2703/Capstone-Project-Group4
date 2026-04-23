@@ -4,21 +4,35 @@
 # ║  Execution order (linear dependency chain):                            ║
 # ║                                                                        ║
 # ║    run_tests ──► run_bronze_pipeline ──► run_silver_pipeline           ║
-# ║                       ──► run_gold_pipeline ──► post_pipeline_audit    ║
+# ║      ──► run_gold_pipeline ──► apply_governance ──► post_pipeline_audit║
 # ║                                                                        ║
 # ║  Design decisions:                                                     ║
 # ║    1. Tests run FIRST as a quality gate — if any test fails,           ║
 # ║       no pipelines execute and the job fails immediately.              ║
 # ║    2. Each pipeline layer waits for its predecessor to complete.       ║
-# ║    3. After gold completes, an audit summary is written to the         ║
+# ║    3. After gold completes, governance is applied (UC permissions,     ║
+# ║       RLS row filters, CLS column masks, user-region seeding).         ║
+# ║    4. After governance, an audit summary is written to the             ║
 # ║       audit schema for operational monitoring.                         ║
-# ║    4. Python tasks use serverless environments with pinned deps.       ║
+# ║    5. Python tasks use serverless environments with pinned deps.       ║
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 resources:
   jobs:
     maven_market_daily_orchestration:
       name: "[${bundle.target}] Full Project Orchestration"
+
+      # ── Access control ───────────────────────────────────────────────
+      # All team roles can at least view the job; admins & engineers manage.
+      permissions:
+        - level: CAN_MANAGE
+          group_name: maven_admins
+        - level: CAN_MANAGE_RUN
+          group_name: maven_engineers
+        - level: CAN_VIEW
+          group_name: maven_analysts
+        - level: CAN_VIEW
+          group_name: maven_executives
 
       tasks:
 
@@ -58,13 +72,27 @@ resources:
           pipeline_task:
             pipeline_id: ${resources.pipelines.maven_market_gold.id}
 
-        # ── Step 4: Audit logging ────────────────────────────────────────
+        # ── Step 4: Governance enforcement ────────────────────────────────
+        # Applies Unity Catalog permissions, seeds user_region_map (RLS),
+        # creates row-filter & column-mask functions, and attaches them
+        # to the gold materialized views. Ensures Snigdha/Devjit see
+        # only their assigned regions and PII is masked for non-admins.
+        - task_key: apply_governance
+          depends_on:
+            - task_key: run_gold_pipeline
+          spark_python_task:
+            python_file: ../scripts/apply_governance.py
+            parameters:
+              - "${var.target_catalog}"
+          environment_key: governance_env
+
+        # ── Step 5: Audit logging ────────────────────────────────────────
         # Writes a structured audit summary row to the audit schema.
         # Receives the target catalog name as a CLI parameter so it
         # can resolve the correct audit_logs table.
         - task_key: post_pipeline_audit
           depends_on:
-            - task_key: run_gold_pipeline
+            - task_key: apply_governance
           spark_python_task:
             python_file: ../scripts/post_pipeline_audit.py
             parameters:
@@ -79,6 +107,10 @@ resources:
             environment_version: "2"
             dependencies:
               - pytest
+        - environment_key: governance_env
+          spec:
+            environment_version: "2"
+            dependencies: []
         - environment_key: audit_env
           spec:
             environment_version: "2"

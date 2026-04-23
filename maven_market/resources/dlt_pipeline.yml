@@ -31,6 +31,18 @@ resources:
       target: ${var.bronze_schema}
       serverless: true
 
+      # ── Access control ───────────────────────────────────────────────
+      # Admins & engineers can manage; analysts & executives can view.
+      permissions:
+        - level: CAN_MANAGE
+          group_name: maven_admins
+        - level: CAN_MANAGE
+          group_name: maven_engineers
+        - level: CAN_VIEW
+          group_name: maven_analysts
+        - level: CAN_VIEW
+          group_name: maven_executives
+
       libraries:
         - file:
             path: ../src/pipelines/bronze/ingest_csv.py
@@ -80,6 +92,17 @@ resources:
       target: ${var.silver_schema}
       serverless: true
 
+      # ── Access control ───────────────────────────────────────────────
+      permissions:
+        - level: CAN_MANAGE
+          group_name: maven_admins
+        - level: CAN_MANAGE
+          group_name: maven_engineers
+        - level: CAN_VIEW
+          group_name: maven_analysts
+        - level: CAN_VIEW
+          group_name: maven_executives
+
       libraries:
         - file:
             path: ../src/pipelines/silver/silver_csv_dlt.py
@@ -114,6 +137,17 @@ resources:
       catalog: ${var.target_catalog}
       target: ${var.gold_schema}
       serverless: true
+
+      # ── Access control ───────────────────────────────────────────────
+      permissions:
+        - level: CAN_MANAGE
+          group_name: maven_admins
+        - level: CAN_MANAGE
+          group_name: maven_engineers
+        - level: CAN_VIEW
+          group_name: maven_analysts
+        - level: CAN_VIEW
+          group_name: maven_executives
 
       libraries:
         - file:
