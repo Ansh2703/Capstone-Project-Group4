@@ -1,0 +1,24 @@
+{
+  "num_workers": {
+    "type": "range",
+    "defaultValue": 1,
+    "maxValue": 2
+  },
+  "spark_conf.spark.databricks.cluster.profile": {
+    "type": "fixed",
+    "value": "singleNode"
+  },
+  "spark_conf.spark.master": {
+    "type": "fixed",
+    "value": "local[*]"
+  },
+  "autotermination_minutes": {
+    "type": "range",
+    "defaultValue": 30,
+    "maxValue": 30
+  },
+  "custom_tags.maven_project": {
+    "type": "fixed",
+    "value": "maven_market"
+  }
+}

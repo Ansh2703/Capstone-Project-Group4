@@ -1,0 +1,47 @@
+# ── Databricks Bundle Artifacts ──────────────────────────────────────────
+.databricks/
+*.bundle/
+
+# ── Python Bytecode & Packaging ─────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# ── Virtual Environments ────────────────────────────────────────────────
+.env
+.venv/
+venv/
+env/
+
+# ── IDE & Editor Files ──────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# ── OS-Generated Files ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Testing & Coverage ──────────────────────────────────────────────────
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+
+# ── Jupyter / Notebook Checkpoints ──────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Logs & Temp Files ───────────────────────────────────────────────────
+*.log
+/tmp/

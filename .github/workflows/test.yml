@@ -1,0 +1,3 @@
+# REMOVED — All CI/CD logic consolidated into deploy.yml
+# This file is kept empty to avoid duplicate workflow runs.
+# See deploy.yml for: test (on push + PR) → deploy (on push only)

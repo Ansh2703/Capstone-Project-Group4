@@ -1,0 +1,21 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  ARCHIVED — Initial Infrastructure Setup Job                           ║
+# ║                                                                        ║
+# ║  This job was used once to bootstrap Unity Catalog objects:            ║
+# ║    - Created catalogs: maven_market_uc, maven_market_dev               ║
+# ║    - Created schemas: bronze, silver, gold, audit                      ║
+# ║    - Set managed locations on ADLS Gen2                                ║
+# ║                                                                        ║
+# ║  It is no longer needed for regular deployments.                       ║
+# ║  Kept here for reference only — all lines are commented out.           ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
+# resources:
+#   jobs:
+#     setup_infrastructure:
+#       name: "[${bundle.target}] Project Infrastructure Setup"
+#       tasks:
+#         - task_key: run_setup_script
+#           spark_python_task:
+#             python_file: "../scripts/setup_uc.py"
+#           existing_cluster_id: "0415-143420-edxkuvmq"

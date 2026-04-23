@@ -1,0 +1,90 @@
+name: "Maven Market CI/CD"
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Select Target Environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - main
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ── Step 1: Run unit tests first ──
+  test:
+    name: "Run Unit Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17 (required by PySpark)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install "pyspark==3.5.3" pytest
+
+      - name: Run pytest
+        working-directory: ./maven_market
+        run: |
+          python -m pytest tests/ -v --tb=short -p no:cacheprovider
+
+  # ── Step 2: Deploy only if tests pass (skip on PRs — only deploy on merge) ──
+  deploy:
+    name: "Deploy and Run"
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Deploy and Trigger Pipeline
+        working-directory: ./maven_market 
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TARGET="${{ github.event.inputs.target }}"
+          else
+            TARGET=${{ github.ref_name == 'main' && 'main' || 'dev' }}
+          fi
+          
+          echo "Processing target: $TARGET"
+          
+          # Deploy with auto-approve to allow destructive recreation of the pipeline
+          databricks bundle deploy -t $TARGET --auto-approve
+          
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manual trigger detected. Starting orchestration job..."
+            databricks bundle run maven_market_daily_orchestration -t $TARGET
+          else
+            echo "Auto-push detected. Code deployed, but pipeline NOT started to save quota."
+          fi
+          
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_BUNDLE_ENGINE: direct

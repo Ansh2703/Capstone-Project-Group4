@@ -1,0 +1,488 @@
+{
+  "datasets": [
+    {
+      "name": "regional_facts",
+      "displayName": "Regional Sales Facts",
+      "queryLines": [
+        "SELECT\n",
+        "  *\n",
+        "FROM\n",
+        "  maven_market_uc.gold.agg_regional_sales"
+      ],
+      "columns": [
+        {
+          "displayName": "month_date",
+          "description": "First day of month from year/month for trend charts",
+          "expression": "MAKE_DATE(`transaction_year`, `transaction_month`, 1)"
+        }
+      ]
+    },
+    {
+      "name": "sales_with_stores",
+      "displayName": "Sales with Store Details",
+      "queryLines": [
+        "SELECT\n",
+        "  a.transaction_year,\n",
+        "  a.transaction_month,\n",
+        "  a.region_id,\n",
+        "  a.store_id,\n",
+        "  a.store_name,\n",
+        "  a.total_store_revenue,\n",
+        "  a.total_items_sold,\n",
+        "  s.store_city,\n",
+        "  s.store_state,\n",
+        "  s.store_country,\n",
+        "  s.store_type,\n",
+        "  s.total_sqft,\n",
+        "  r.sales_district,\n",
+        "  r.sales_region\n",
+        "FROM\n",
+        "  maven_market_uc.gold.agg_regional_sales a\n",
+        "    JOIN maven_market_uc.silver.stores s\n",
+        "      ON a.store_id = s.store_id\n",
+        "      AND s.__END_AT IS NULL\n",
+        "    JOIN maven_market_uc.silver.regions r\n",
+        "      ON a.region_id = r.region_id"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "6c8887bf",
+      "displayName": "Regional Sales Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Regional Sales Overview\n",
+                "Sales performance by store, region, and district — filtered by your assigned regions."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "total_revenue",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "regional_facts",
+                  "fields": [
+                    {
+                      "name": "sum(total_store_revenue)",
+                      "expression": "SUM(`total_store_revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Total Revenue",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(total_store_revenue)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Total Revenue"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 6,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "total_items",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "regional_facts",
+                  "fields": [
+                    {
+                      "name": "sum(total_items_sold)",
+                      "expression": "SUM(`total_items_sold`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Total Items Sold",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(total_items_sold)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Total Items Sold"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 1,
+            "width": 6,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "revenue_by_store",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "sales_with_stores",
+                  "fields": [
+                    {
+                      "name": "store_name",
+                      "expression": "`store_name`"
+                    },
+                    {
+                      "name": "sum(total_store_revenue)",
+                      "expression": "SUM(`total_store_revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Revenue by Store",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "store_name",
+                  "axis": {
+                    "hideTitle": true
+                  },
+                  "displayName": "Store",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(total_store_revenue)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Revenue",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "monthly_trend",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "regional_facts",
+                  "fields": [
+                    {
+                      "name": "month_date",
+                      "expression": "`month_date`"
+                    },
+                    {
+                      "name": "sum(total_store_revenue)",
+                      "expression": "SUM(`total_store_revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Monthly Revenue Trend",
+                "showTitle": true
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "month_date",
+                  "axis": {
+                    "hideTitle": true
+                  },
+                  "displayName": "Month",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(total_store_revenue)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Revenue",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 4,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "region_district",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "sales_with_stores",
+                  "fields": [
+                    {
+                      "name": "sales_district",
+                      "expression": "`sales_district`"
+                    },
+                    {
+                      "name": "sales_region",
+                      "expression": "`sales_region`"
+                    },
+                    {
+                      "name": "sum(total_store_revenue)",
+                      "expression": "SUM(`total_store_revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Sales by Region & District",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sales_region",
+                  "displayName": "Region",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(total_store_revenue)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Revenue",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "sales_district",
+                  "legend": {
+                    "position": "right"
+                  },
+                  "displayName": "District",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "store_performance",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "sales_with_stores",
+                  "fields": [
+                    {
+                      "name": "store_name",
+                      "expression": "`store_name`"
+                    },
+                    {
+                      "name": "store_city",
+                      "expression": "`store_city`"
+                    },
+                    {
+                      "name": "store_state",
+                      "expression": "`store_state`"
+                    },
+                    {
+                      "name": "sales_region",
+                      "expression": "`sales_region`"
+                    },
+                    {
+                      "name": "sales_district",
+                      "expression": "`sales_district`"
+                    },
+                    {
+                      "name": "sum(total_store_revenue)",
+                      "expression": "SUM(`total_store_revenue`)"
+                    },
+                    {
+                      "name": "sum(total_items_sold)",
+                      "expression": "SUM(`total_items_sold`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Store Performance",
+                "showTitle": true
+              },
+              "rowsPerPage": 25,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "store_name",
+                    "displayName": "Store"
+                  },
+                  {
+                    "fieldName": "store_city",
+                    "displayName": "City"
+                  },
+                  {
+                    "fieldName": "store_state",
+                    "displayName": "State"
+                  },
+                  {
+                    "fieldName": "sales_region",
+                    "displayName": "Region"
+                  },
+                  {
+                    "fieldName": "sales_district",
+                    "displayName": "District"
+                  },
+                  {
+                    "fieldName": "sum(total_store_revenue)",
+                    "displayName": "Revenue"
+                  },
+                  {
+                    "fieldName": "sum(total_items_sold)",
+                    "displayName": "Items Sold"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 11,
+            "width": 6,
+            "height": 7
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}

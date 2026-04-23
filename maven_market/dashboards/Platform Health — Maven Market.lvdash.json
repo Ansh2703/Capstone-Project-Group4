@@ -1,0 +1,868 @@
+{
+  "datasets": [
+    {
+      "name": "gold_summary",
+      "displayName": "Gold Summary",
+      "queryLines": [
+        "SELECT\n",
+        "  (\n",
+        "    SELECT\n",
+        "      COUNT(*)\n",
+        "    FROM\n",
+        "      maven_market_uc.gold.fact_sales\n",
+        "  ) AS total_sales_rows,\n",
+        "  (\n",
+        "    SELECT\n",
+        "      COUNT(*)\n",
+        "    FROM\n",
+        "      maven_market_uc.gold.fact_returns\n",
+        "  ) AS total_return_rows,\n",
+        "  (\n",
+        "    SELECT\n",
+        "      COUNT(DISTINCT customer_id)\n",
+        "    FROM\n",
+        "      maven_market_uc.gold.dim_customer\n",
+        "  ) AS unique_customers,\n",
+        "  (\n",
+        "    SELECT\n",
+        "      COUNT(DISTINCT product_id)\n",
+        "    FROM\n",
+        "      maven_market_uc.gold.dim_product\n",
+        "  ) AS unique_products,\n",
+        "  (\n",
+        "    SELECT\n",
+        "      COUNT(DISTINCT store_id)\n",
+        "    FROM\n",
+        "      maven_market_uc.gold.dim_store\n",
+        "  ) AS unique_stores,\n",
+        "  (\n",
+        "    SELECT\n",
+        "      ROUND(SUM(revenue), 2)\n",
+        "    FROM\n",
+        "      maven_market_uc.gold.fact_sales\n",
+        "  ) AS total_revenue,\n",
+        "  (\n",
+        "    SELECT\n",
+        "      MAX(gold_loaded_at)\n",
+        "    FROM\n",
+        "      maven_market_uc.gold.fact_sales\n",
+        "  ) AS last_gold_refresh"
+      ]
+    },
+    {
+      "name": "layer_counts",
+      "displayName": "Data Layer Counts",
+      "queryLines": [
+        "SELECT\n",
+        "  'Bronze' AS layer,\n",
+        "  'transactions' AS table_name,\n",
+        "  COUNT(*) AS row_count\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_transactions\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Bronze',\n",
+        "  'orders_kafka',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_orders_kafka\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Bronze',\n",
+        "  'inventory_kafka',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_inventory_kafka\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Bronze',\n",
+        "  'customers',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_customers\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Bronze',\n",
+        "  'products',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_products\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Bronze',\n",
+        "  'regions',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_regions\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Bronze',\n",
+        "  'stores',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_stores\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Bronze',\n",
+        "  'return',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_return\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Bronze',\n",
+        "  'calendar',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_calendar\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Silver',\n",
+        "  'transactions',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.silver.transactions\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Silver',\n",
+        "  'orders',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.silver.orders\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Silver',\n",
+        "  'inventory',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.silver.inventory\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Silver',\n",
+        "  'customers',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.silver.customers\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Silver',\n",
+        "  'products',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.silver.products\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Silver',\n",
+        "  'regions',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.silver.regions\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Silver',\n",
+        "  'stores',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.silver.stores\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Silver',\n",
+        "  'returns',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.silver.returns\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Silver',\n",
+        "  'calendar',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.silver.calendar\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold',\n",
+        "  'fact_sales',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.fact_sales\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold',\n",
+        "  'fact_returns',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.fact_returns\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold',\n",
+        "  'dim_customer',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.dim_customer\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold',\n",
+        "  'dim_product',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.dim_product\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold',\n",
+        "  'dim_store',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.dim_store\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold',\n",
+        "  'dim_region',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.dim_region\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold',\n",
+        "  'dim_date',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.dim_date\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold',\n",
+        "  'agg_executive_overview',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.agg_executive_overview\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold',\n",
+        "  'agg_regional_sales',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.agg_regional_sales\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold',\n",
+        "  'agg_customer_ltv',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.agg_customer_ltv\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold',\n",
+        "  'agg_ops_inventory_alerts',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.agg_ops_inventory_alerts\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold',\n",
+        "  'agg_ops_orders_per_minute',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.agg_ops_orders_per_minute\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold',\n",
+        "  'agg_store_space_utilization',\n",
+        "  COUNT(*)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.agg_store_space_utilization"
+      ]
+    },
+    {
+      "name": "data_freshness",
+      "displayName": "Data Freshness",
+      "queryLines": [
+        "SELECT\n",
+        "  'Bronze Transactions' AS source,\n",
+        "  'Bronze' AS layer,\n",
+        "  MAX(ingestion_time) AS last_updated\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_transactions\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Bronze Orders Kafka',\n",
+        "  'Bronze',\n",
+        "  MAX(ingestion_time)\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_orders_kafka\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Bronze Inventory Kafka',\n",
+        "  'Bronze',\n",
+        "  MAX(ingestion_time)\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_inventory_kafka\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Bronze Customers',\n",
+        "  'Bronze',\n",
+        "  MAX(ingestion_time)\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_customers\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Bronze Products',\n",
+        "  'Bronze',\n",
+        "  MAX(ingestion_time)\n",
+        "FROM\n",
+        "  maven_market_uc.bronze.bronze_products\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Silver Transactions',\n",
+        "  'Silver',\n",
+        "  MAX(silver_ingestion_time)\n",
+        "FROM\n",
+        "  maven_market_uc.silver.transactions\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Silver Orders',\n",
+        "  'Silver',\n",
+        "  MAX(silver_ingestion_time)\n",
+        "FROM\n",
+        "  maven_market_uc.silver.orders\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Silver Inventory',\n",
+        "  'Silver',\n",
+        "  MAX(silver_ingestion_time)\n",
+        "FROM\n",
+        "  maven_market_uc.silver.inventory\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold Fact Sales',\n",
+        "  'Gold',\n",
+        "  MAX(gold_loaded_at)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.fact_sales\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  'Gold Fact Returns',\n",
+        "  'Gold',\n",
+        "  MAX(gold_loaded_at)\n",
+        "FROM\n",
+        "  maven_market_uc.gold.fact_returns\n",
+        "ORDER BY\n",
+        "  layer,\n",
+        "  source"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "0ffbffc2",
+      "displayName": "Platform Health",
+      "layout": [
+        {
+          "widget": {
+            "name": "header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Platform Health — Maven Market\n",
+                "Data pipeline coverage, row counts, and freshness across Bronze → Silver → Gold layers."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "total_revenue",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "gold_summary",
+                  "fields": [
+                    {
+                      "name": "total_revenue",
+                      "expression": "`total_revenue`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Total Revenue",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_revenue",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Total Revenue"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "sales_rows",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "gold_summary",
+                  "fields": [
+                    {
+                      "name": "total_sales_rows",
+                      "expression": "`total_sales_rows`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Sales Rows",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_sales_rows",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Sales Rows"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "return_rows",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "gold_summary",
+                  "fields": [
+                    {
+                      "name": "total_return_rows",
+                      "expression": "`total_return_rows`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Return Rows",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_return_rows",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Return Rows"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "unique_customers",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "gold_summary",
+                  "fields": [
+                    {
+                      "name": "unique_customers",
+                      "expression": "`unique_customers`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Unique Customers",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "unique_customers",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Unique Customers"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 2,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "unique_products",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "gold_summary",
+                  "fields": [
+                    {
+                      "name": "unique_products",
+                      "expression": "`unique_products`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Unique Products",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "unique_products",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Unique Products"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 2,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "unique_stores",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "gold_summary",
+                  "fields": [
+                    {
+                      "name": "unique_stores",
+                      "expression": "`unique_stores`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Unique Stores",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "unique_stores",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Unique Stores"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 10,
+            "y": 2,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "layer_counts_chart",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "layer_counts",
+                  "fields": [
+                    {
+                      "name": "layer",
+                      "expression": "`layer`"
+                    },
+                    {
+                      "name": "table_name",
+                      "expression": "`table_name`"
+                    },
+                    {
+                      "name": "sum(row_count)",
+                      "expression": "SUM(`row_count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Row Counts by Table",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "table_name",
+                  "axis": {
+                    "hideTitle": true
+                  },
+                  "displayName": "Table",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(row_count)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Row Count",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "layer",
+                  "legend": {
+                    "position": "top"
+                  },
+                  "displayName": "Layer",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "Bronze",
+                        "color": "#CD7F32"
+                      },
+                      {
+                        "value": "Silver",
+                        "color": "#C0C0C0"
+                      },
+                      {
+                        "value": "Gold",
+                        "color": "#FFD700"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 12,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "freshness_table",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "data_freshness",
+                  "fields": [
+                    {
+                      "name": "source",
+                      "expression": "`source`"
+                    },
+                    {
+                      "name": "layer",
+                      "expression": "`layer`"
+                    },
+                    {
+                      "name": "last_updated",
+                      "expression": "`last_updated`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Data Freshness",
+                "showTitle": true
+              },
+              "rowsPerPage": 25,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "source",
+                    "displayName": "Source"
+                  },
+                  {
+                    "fieldName": "layer",
+                    "displayName": "Layer",
+                    "style": {
+                      "type": "basic",
+                      "rules": [
+                        {
+                          "condition": {
+                            "operand": {
+                              "type": "data-value",
+                              "value": "Bronze"
+                            },
+                            "operator": "="
+                          },
+                          "backgroundColor": "#FFF3E0",
+                          "foregroundColor": "#8D6E00"
+                        },
+                        {
+                          "condition": {
+                            "operand": {
+                              "type": "data-value",
+                              "value": "Silver"
+                            },
+                            "operator": "="
+                          },
+                          "backgroundColor": "#F5F5F5",
+                          "foregroundColor": "#616161"
+                        },
+                        {
+                          "condition": {
+                            "operand": {
+                              "type": "data-value",
+                              "value": "Gold"
+                            },
+                            "operator": "="
+                          },
+                          "backgroundColor": "#FFFDE7",
+                          "foregroundColor": "#F9A825"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "fieldName": "last_updated",
+                    "displayName": "Last Updated"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 13,
+            "width": 12,
+            "height": 7
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}

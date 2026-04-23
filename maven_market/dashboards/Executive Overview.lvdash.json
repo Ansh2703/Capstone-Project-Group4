@@ -1,0 +1,1135 @@
+{
+  "datasets": [
+    {
+      "name": "top_products",
+      "displayName": "Top 10 Products by Revenue",
+      "queryLines": [
+        "SELECT\n",
+        "  p.product_name,\n",
+        "  p.product_brand,\n",
+        "  SUM(t.quantity * p.product_retail_price) AS total_revenue,\n",
+        "  SUM(t.quantity * (p.product_retail_price - p.product_cost)) AS total_profit,\n",
+        "  SUM(t.quantity) AS total_quantity,\n",
+        "  AVG(p.margin_pct) AS avg_margin_pct\n",
+        "FROM\n",
+        "  maven_market_uc.silver.transactions t\n",
+        "    JOIN maven_market_uc.gold.dim_product p\n",
+        "      ON t.product_id = p.product_id\n",
+        "GROUP BY\n",
+        "  p.product_name,\n",
+        "  p.product_brand\n",
+        "ORDER BY\n",
+        "  total_revenue DESC\n",
+        "LIMIT 10"
+      ]
+    },
+    {
+      "name": "yoy_growth",
+      "displayName": "YoY Revenue Growth",
+      "queryLines": [
+        "SELECT\n",
+        "  SUM(\n",
+        "    CASE\n",
+        "      WHEN t.transaction_year = 1997 THEN t.quantity * p.product_retail_price\n",
+        "      ELSE 0\n",
+        "    END\n",
+        "  ) AS rev_1997,\n",
+        "  SUM(\n",
+        "    CASE\n",
+        "      WHEN t.transaction_year = 1998 THEN t.quantity * p.product_retail_price\n",
+        "      ELSE 0\n",
+        "    END\n",
+        "  ) AS rev_1998,\n",
+        "  ROUND(\n",
+        "    (\n",
+        "      SUM(\n",
+        "        CASE\n",
+        "          WHEN t.transaction_year = 1998 THEN t.quantity * p.product_retail_price\n",
+        "          ELSE 0\n",
+        "        END\n",
+        "      )\n",
+        "        - SUM(\n",
+        "          CASE\n",
+        "            WHEN t.transaction_year = 1997 THEN t.quantity * p.product_retail_price\n",
+        "            ELSE 0\n",
+        "          END\n",
+        "        )\n",
+        "    )\n",
+        "      / NULLIF(\n",
+        "        SUM(\n",
+        "          CASE\n",
+        "            WHEN t.transaction_year = 1997 THEN t.quantity * p.product_retail_price\n",
+        "            ELSE 0\n",
+        "          END\n",
+        "        ),\n",
+        "        0\n",
+        "      )\n",
+        "      * 100,\n",
+        "    2\n",
+        "  ) AS yoy_growth_pct\n",
+        "FROM\n",
+        "  maven_market_uc.silver.transactions t\n",
+        "    JOIN maven_market_uc.gold.dim_product p\n",
+        "      ON t.product_id = p.product_id"
+      ]
+    },
+    {
+      "name": "monthly_trend",
+      "displayName": "Monthly Revenue Trend",
+      "queryLines": [
+        "SELECT\n",
+        "  t.transaction_year,\n",
+        "  t.transaction_month,\n",
+        "  SUM(t.quantity * p.product_retail_price) AS monthly_revenue,\n",
+        "  SUM(t.quantity * (p.product_retail_price - p.product_cost)) AS monthly_profit,\n",
+        "  SUM(t.quantity * p.product_cost) AS monthly_cost,\n",
+        "  COUNT(*) AS transaction_count\n",
+        "FROM\n",
+        "  maven_market_uc.silver.transactions t\n",
+        "    JOIN maven_market_uc.gold.dim_product p\n",
+        "      ON t.product_id = p.product_id\n",
+        "GROUP BY\n",
+        "  t.transaction_year,\n",
+        "  t.transaction_month\n",
+        "ORDER BY\n",
+        "  t.transaction_year,\n",
+        "  t.transaction_month"
+      ]
+    },
+    {
+      "name": "fact_sales",
+      "displayName": "Fact Sales",
+      "queryLines": [
+        "SELECT\n",
+        "  t.transaction_date,\n",
+        "  t.stock_date,\n",
+        "  t.product_id,\n",
+        "  t.customer_id,\n",
+        "  t.store_id,\n",
+        "  t.quantity,\n",
+        "  t.quantity * p.product_retail_price AS revenue,\n",
+        "  t.quantity * p.product_cost AS cost,\n",
+        "  t.quantity * (p.product_retail_price - p.product_cost) AS gross_profit,\n",
+        "  t.transaction_year,\n",
+        "  t.transaction_month,\n",
+        "  t.transaction_quarter\n",
+        "FROM\n",
+        "  maven_market_uc.silver.transactions t\n",
+        "    JOIN maven_market_uc.gold.dim_product p\n",
+        "      ON t.product_id = p.product_id"
+      ],
+      "columns": [
+        {
+          "displayName": "Profit Margin %",
+          "description": "Profit margin as a percentage: (Total Gross Profit / Total Revenue) × 100",
+          "expression": "ROUND(SUM(`gross_profit`) / SUM(`revenue`) * 100, 2)"
+        }
+      ]
+    },
+    {
+      "name": "rev_cost_unpivot",
+      "displayName": "Revenue vs Cost Quarterly",
+      "queryLines": [
+        "SELECT\n",
+        "  t.transaction_quarter,\n",
+        "  'Revenue' AS metric_name,\n",
+        "  SUM(t.quantity * p.product_retail_price) AS amount\n",
+        "FROM\n",
+        "  maven_market_uc.silver.transactions t\n",
+        "    JOIN maven_market_uc.gold.dim_product p\n",
+        "      ON t.product_id = p.product_id\n",
+        "GROUP BY\n",
+        "  t.transaction_quarter\n",
+        "UNION ALL\n",
+        "SELECT\n",
+        "  t.transaction_quarter,\n",
+        "  'Cost' AS metric_name,\n",
+        "  SUM(t.quantity * p.product_cost) AS amount\n",
+        "FROM\n",
+        "  maven_market_uc.silver.transactions t\n",
+        "    JOIN maven_market_uc.gold.dim_product p\n",
+        "      ON t.product_id = p.product_id\n",
+        "GROUP BY\n",
+        "  t.transaction_quarter"
+      ]
+    },
+    {
+      "name": "returns_analysis",
+      "displayName": "Returns Analysis",
+      "queryLines": [
+        "SELECT\n",
+        "  r.return_date,\n",
+        "  r.return_year,\n",
+        "  r.product_id,\n",
+        "  r.store_id,\n",
+        "  r.quantity,\n",
+        "  r.quantity * p.product_retail_price AS return_revenue,\n",
+        "  r.quantity * p.product_cost AS return_cost,\n",
+        "  r.return_month AS month\n",
+        "FROM\n",
+        "  maven_market_uc.silver.returns r\n",
+        "    JOIN maven_market_uc.gold.dim_product p\n",
+        "      ON r.product_id = p.product_id"
+      ]
+    },
+    {
+      "name": "customer_analysis",
+      "displayName": "Customer Analysis",
+      "queryLines": [
+        "SELECT\n",
+        "  t.customer_id,\n",
+        "  c.full_name,\n",
+        "  c.customer_country,\n",
+        "  c.member_card,\n",
+        "  c.yearly_income,\n",
+        "  c.gender,\n",
+        "  t.quantity * p.product_retail_price AS revenue,\n",
+        "  t.quantity * (p.product_retail_price - p.product_cost) AS gross_profit,\n",
+        "  t.quantity\n",
+        "FROM\n",
+        "  maven_market_uc.silver.transactions t\n",
+        "    JOIN maven_market_uc.silver.customers c\n",
+        "      ON t.customer_id = c.customer_id\n",
+        "      AND c.__END_AT IS NULL\n",
+        "    JOIN maven_market_uc.gold.dim_product p\n",
+        "      ON t.product_id = p.product_id"
+      ],
+      "columns": [
+        {
+          "displayName": "Avg Revenue Per Customer",
+          "description": "Average revenue per unique customer",
+          "expression": "SUM(`revenue`) / COUNT(DISTINCT `customer_id`)"
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "c06202ab",
+      "displayName": "Executive Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "total_revenue",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fact_sales",
+                  "fields": [
+                    {
+                      "name": "sum(revenue)",
+                      "expression": "SUM(`revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Total Revenue",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(revenue)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Total Revenue"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "profit_margin",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fact_sales",
+                  "fields": [
+                    {
+                      "name": "measure(Profit Margin %)",
+                      "expression": "MEASURE(`Profit Margin %`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Profit Margin %",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Profit Margin %)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    },
+                    "abbreviation": "none"
+                  },
+                  "displayName": "Profit Margin %"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "yoy_growth",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "yoy_growth",
+                  "fields": [
+                    {
+                      "name": "max(yoy_growth_pct)",
+                      "expression": "MAX(`yoy_growth_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "YoY Revenue Growth",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "max(yoy_growth_pct)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    },
+                    "abbreviation": "none"
+                  },
+                  "style": {
+                    "rules": [
+                      {
+                        "condition": {
+                          "operand": {
+                            "type": "data-value",
+                            "value": "0"
+                          },
+                          "operator": ">="
+                        },
+                        "color": "#1B8C3A"
+                      },
+                      {
+                        "condition": {
+                          "operand": {
+                            "type": "data-value",
+                            "value": "0"
+                          },
+                          "operator": "<"
+                        },
+                        "color": "#D32F2F"
+                      }
+                    ]
+                  },
+                  "displayName": "YoY Growth %"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "total_transactions",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fact_sales",
+                  "fields": [
+                    {
+                      "name": "count(*)",
+                      "expression": "COUNT(`*`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Total Transactions",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(*)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Total Transactions"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "monthly_trend",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "monthly_trend",
+                  "fields": [
+                    {
+                      "name": "transaction_year",
+                      "expression": "`transaction_year`"
+                    },
+                    {
+                      "name": "transaction_month",
+                      "expression": "`transaction_month`"
+                    },
+                    {
+                      "name": "sum(monthly_revenue)",
+                      "expression": "SUM(`monthly_revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Monthly Revenue Trend (1997 vs 1998)",
+                "showTitle": true
+              },
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "transaction_month",
+                  "displayName": "Month",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(monthly_revenue)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Revenue",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "transaction_year",
+                  "legend": {
+                    "position": "bottom"
+                  },
+                  "displayName": "Year",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "quarterly_revenue",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fact_sales",
+                  "fields": [
+                    {
+                      "name": "transaction_year",
+                      "expression": "`transaction_year`"
+                    },
+                    {
+                      "name": "transaction_quarter",
+                      "expression": "`transaction_quarter`"
+                    },
+                    {
+                      "name": "sum(revenue)",
+                      "expression": "SUM(`revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Quarterly Revenue by Year",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "transaction_quarter",
+                  "displayName": "Quarter",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(revenue)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Revenue",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "transaction_year",
+                  "legend": {
+                    "position": "bottom"
+                  },
+                  "displayName": "Year",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "top_products_final",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "top_products",
+                  "fields": [
+                    {
+                      "name": "product_brand",
+                      "expression": "`product_brand`"
+                    },
+                    {
+                      "name": "product_name",
+                      "expression": "`product_name`"
+                    },
+                    {
+                      "name": "sum(total_revenue)",
+                      "expression": "SUM(`total_revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Top 10 Products by Revenue",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "product_name",
+                  "displayName": "Product",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(total_revenue)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Revenue",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "product_brand",
+                  "legend": {
+                    "position": "right"
+                  },
+                  "displayName": "Brand",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "rev_cost_final",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "rev_cost_unpivot",
+                  "fields": [
+                    {
+                      "name": "metric_name",
+                      "expression": "`metric_name`"
+                    },
+                    {
+                      "name": "transaction_quarter",
+                      "expression": "`transaction_quarter`"
+                    },
+                    {
+                      "name": "sum(amount)",
+                      "expression": "SUM(`amount`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Revenue vs Cost by Quarter",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "transaction_quarter",
+                  "displayName": "Quarter",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(amount)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Amount",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "metric_name",
+                  "legend": {
+                    "position": "bottom"
+                  },
+                  "displayName": "Metric",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "Revenue",
+                        "color": "#2196F3"
+                      },
+                      {
+                        "value": "Cost",
+                        "color": "#FF5722"
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 10,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "section_header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## Returns & Customer Analysis"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 17,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "return_revenue",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "returns_analysis",
+                  "fields": [
+                    {
+                      "name": "sum(return_revenue)",
+                      "expression": "SUM(`return_revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Return Revenue",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(return_revenue)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "style": {
+                    "rules": [
+                      {
+                        "condition": {
+                          "operand": {
+                            "type": "data-value",
+                            "value": "0"
+                          },
+                          "operator": ">"
+                        },
+                        "color": "#D32F2F"
+                      }
+                    ]
+                  },
+                  "displayName": "Return Revenue"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 18,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "total_returns",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "returns_analysis",
+                  "fields": [
+                    {
+                      "name": "count(*)",
+                      "expression": "COUNT(`*`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Total Returns",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(*)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Total Returns"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 18,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "unique_customers",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "customer_analysis",
+                  "fields": [
+                    {
+                      "name": "countdistinct(customer_id)",
+                      "expression": "COUNT(DISTINCT `customer_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Unique Customers",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "countdistinct(customer_id)",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Customers"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 18,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "avg_rev_customer",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "customer_analysis",
+                  "fields": [
+                    {
+                      "name": "measure(Avg Revenue Per Customer)",
+                      "expression": "MEASURE(`Avg Revenue Per Customer`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "title": "Avg Revenue / Customer",
+                "showTitle": true
+              },
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Avg Revenue Per Customer)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "none"
+                  },
+                  "displayName": "Avg Revenue Per Customer"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 9,
+            "y": 18,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "returns_by_month",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "returns_analysis",
+                  "fields": [
+                    {
+                      "name": "month",
+                      "expression": "`month`"
+                    },
+                    {
+                      "name": "sum(return_revenue)",
+                      "expression": "SUM(`return_revenue`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Returns by Month",
+                "showTitle": true
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "month",
+                  "displayName": "Month",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(return_revenue)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Return Revenue",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "month",
+                  "legend": {
+                    "hide": true
+                  },
+                  "displayName": "Month",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 21,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "revenue_by_country",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "customer_analysis",
+                  "fields": [
+                    {
+                      "name": "sum(revenue)",
+                      "expression": "SUM(`revenue`)"
+                    },
+                    {
+                      "name": "customer_country",
+                      "expression": "`customer_country`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "title": "Revenue by Customer Country",
+                "showTitle": true
+              },
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "sum(revenue)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 0
+                    },
+                    "abbreviation": "compact"
+                  },
+                  "displayName": "Revenue"
+                },
+                "color": {
+                  "fieldName": "customer_country",
+                  "legend": {
+                    "position": "right"
+                  },
+                  "displayName": "Country",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 21,
+            "width": 6,
+            "height": 7
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}

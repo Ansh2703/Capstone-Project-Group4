@@ -1,0 +1,16 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  Maven Market — Python Dependencies                                    ║
+# ║                                                                        ║
+# ║  These are used by serverless task environments and local dev.         ║
+# ║  PySpark and Delta Lake are pre-installed on Databricks runtimes       ║
+# ║  and do NOT need to be listed here.                                    ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
+# Configuration parsing (used by src/utils/config_parser.py)
+pyyaml>=6.0
+
+# Unit testing (used by tests/run_tests.py and the test gate in jobs.yml)
+pytest>=7.0
+
+# Databricks SDK (optional — used for workspace API calls in scripts/)
+databricks-sdk>=0.20.0
