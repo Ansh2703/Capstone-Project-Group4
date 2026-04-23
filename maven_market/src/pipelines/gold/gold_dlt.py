@@ -170,7 +170,15 @@ def dim_store():
         stores
         .join(regions, stores.region_id == regions.r_region_id, "left")
         .drop("r_region_id")
+        .withColumn("store_sk", F.md5(F.concat_ws("||", col("store_id").cast("string"), col("effective_from").cast("string"))))
         .withColumn("gold_loaded_at", current_timestamp())
+        .select(
+            "store_sk", "store_id", "region_id", "store_type", "store_name",
+            "store_street_address", "store_city", "store_state", "store_country",
+            "store_phone", "first_opened_date", "last_remodel_date",
+            "total_sqft", "grocery_sqft", "effective_from",
+            "sales_district", "sales_region", "gold_loaded_at",
+        )
     )
 
 @dlt.table(
@@ -222,6 +230,17 @@ def dim_customer():
             col("__START_AT").alias("effective_from"),
             current_timestamp().alias("gold_loaded_at"),
         )
+        .withColumn("customer_sk", F.md5(F.concat_ws("||", col("customer_id").cast("string"), col("effective_from").cast("string"))))
+        .select(
+            "customer_sk", "customer_id", "customer_acct_num",
+            "first_name", "last_name", "full_name", "email_address",
+            "customer_address", "customer_city", "customer_state_province",
+            "customer_postal_code", "customer_country", "birthdate",
+            "gender", "total_children", "num_children_at_home",
+            "education", "marital_status", "yearly_income", "member_card",
+            "occupation", "homeowner", "acct_open_date",
+            "effective_from", "gold_loaded_at",
+        )
     )
 
 @dlt.table(
@@ -257,6 +276,13 @@ def dim_product():
             col("margin_pct"),
             col("__START_AT").alias("effective_from"),
             current_timestamp().alias("gold_loaded_at"),
+        )
+        .withColumn("product_sk", F.md5(F.concat_ws("||", col("product_id").cast("string"), col("effective_from").cast("string"))))
+        .select(
+            "product_sk", "product_id", "product_brand", "product_name",
+            "product_sku", "product_retail_price", "product_cost",
+            "product_weight", "recyclable", "low_fat", "margin_pct",
+            "effective_from", "gold_loaded_at",
         )
     )
 
@@ -320,7 +346,9 @@ def fact_sales():
         .withColumn("gross_profit", F.round(col("revenue") - col("cost"), 2))
         .withColumn("date_key",     F.date_format(col("transaction_date"), "yyyyMMdd").cast("int"))
         .withColumn("gold_loaded_at", current_timestamp())
+        .withColumn("sale_sk", F.monotonically_increasing_id())
         .select(
+            "sale_sk",
             "date_key", "transaction_date", "stock_date",
             "product_id", "customer_id", "store_id", "quantity",
             "revenue", "cost", "gross_profit",
@@ -378,7 +406,9 @@ def fact_returns():
         .withColumn("return_cost",    F.round(col("quantity") * col("product_cost"), 2))
         .withColumn("date_key",       F.date_format(col("return_date"), "yyyyMMdd").cast("int"))
         .withColumn("gold_loaded_at", current_timestamp())
+        .withColumn("return_sk", F.monotonically_increasing_id())
         .select(
+            "return_sk",
             "date_key", "return_date", "product_id", "store_id",
             "quantity", "return_revenue", "return_cost",
             "return_year", "gold_loaded_at",
