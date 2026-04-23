@@ -1,0 +1,94 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  Lakeview Dashboards — Bundle-Managed with Governance                  ║
+# ║                                                                        ║
+# ║  Dashboard credentials model:                                          ║
+# ║    embed_credentials: false → queries run as the VIEWER.               ║
+# ║      RLS row filters apply per user (Snigdha sees her regions,         ║
+# ║      Devjit sees his). CLS column masks apply per user.                ║
+# ║      Requires viewers to have SELECT on queried tables.                ║
+# ║                                                                        ║
+# ║    embed_credentials: true  → queries run as the PUBLISHER.            ║
+# ║      Used for operational dashboards that query bronze/silver           ║
+# ║      (which analysts/executives cannot access directly).               ║
+# ║                                                                        ║
+# ║  All dashboards use the shared SQL warehouse (${var.warehouse_id}).    ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
+resources:
+  dashboards:
+
+    # ── Regional Sales ───────────────────────────────────────────────────
+    # Region-bearing dashboard with RLS enforcement.
+    # embed_credentials: false ensures each viewer's identity is used,
+    # so the region_filter function filters to their assigned regions.
+    #   Snigdha (analyst)   → North West, Central West, South West
+    #   Devjit  (executive) → South West only
+    regional_sales:
+      display_name: "[${bundle.target}] Regional Sales"
+      file_path: ../dashboards/Regional Sales.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      embed_credentials: false
+      permissions:
+        - level: CAN_MANAGE
+          group_name: maven_admins
+        - level: CAN_EDIT
+          group_name: maven_engineers
+        - level: CAN_RUN
+          group_name: maven_analysts
+        - level: CAN_RUN
+          group_name: maven_executives
+
+    # ── Executive Overview ───────────────────────────────────────────────
+    # High-level business KPIs for leadership.
+    # embed_credentials: false so RLS/CLS apply per viewer.
+    executive_overview:
+      display_name: "[${bundle.target}] Executive Overview"
+      file_path: ../dashboards/Executive Overview.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      embed_credentials: false
+      permissions:
+        - level: CAN_MANAGE
+          group_name: maven_admins
+        - level: CAN_EDIT
+          group_name: maven_engineers
+        - level: CAN_RUN
+          group_name: maven_analysts
+        - level: CAN_RUN
+          group_name: maven_executives
+
+    # ── Platform Health ──────────────────────────────────────────────────
+    # Operational dashboard (row counts, freshness across all layers).
+    # embed_credentials: true because it queries bronze/silver schemas
+    # that analysts/executives cannot access directly.
+    platform_health:
+      display_name: "[${bundle.target}] Platform Health — Maven Market"
+      file_path: ../dashboards/Platform Health — Maven Market.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      embed_credentials: true
+      permissions:
+        - level: CAN_MANAGE
+          group_name: maven_admins
+        - level: CAN_EDIT
+          group_name: maven_engineers
+        - level: CAN_RUN
+          group_name: maven_analysts
+        - level: CAN_RUN
+          group_name: maven_executives
+
+    # ── Real-Time Ops ────────────────────────────────────────────────────
+    # Streaming operations dashboard (Kafka orders, inventory alerts).
+    # embed_credentials: true for same reason as Platform Health.
+    realtime_ops:
+      display_name: "[${bundle.target}] Real-Time Ops"
+      file_path: ../dashboards/Real-Time Ops.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      embed_credentials: true
+      permissions:
+        - level: CAN_MANAGE
+          group_name: maven_admins
+        - level: CAN_EDIT
+          group_name: maven_engineers
+        - level: CAN_RUN
+          group_name: maven_analysts
+        - level: CAN_RUN
+          group_name: maven_executives

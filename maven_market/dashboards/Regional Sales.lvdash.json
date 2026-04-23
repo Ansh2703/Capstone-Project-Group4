@@ -38,10 +38,9 @@
         "  r.sales_region\n",
         "FROM\n",
         "  maven_market_uc.gold.agg_regional_sales a\n",
-        "    JOIN maven_market_uc.silver.stores s\n",
+        "    JOIN maven_market_uc.gold.dim_store s\n",
         "      ON a.store_id = s.store_id\n",
-        "      AND s.__END_AT IS NULL\n",
-        "    JOIN maven_market_uc.silver.regions r\n",
+        "    JOIN maven_market_uc.gold.dim_region r\n",
         "      ON a.region_id = r.region_id"
       ]
     }

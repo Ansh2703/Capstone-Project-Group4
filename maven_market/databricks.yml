@@ -17,7 +17,7 @@ bundle:
   name: "maven_market_v3"
 
 # ─── Resource Includes ───────────────────────────────────────────────────
-# All pipeline, job, and infrastructure definitions live in resources/.
+# All pipeline, job, dashboard, and infrastructure definitions live in resources/.
 # DABs auto-discovers every .yml file matching this glob pattern.
 include:
   - resources/*.yml
@@ -48,6 +48,11 @@ variables:
   pipelines_development:
     description: "When 'true', pipelines run in dev mode (faster restarts, no production checkpoints)"
     default: "true"
+
+  # ── SQL Warehouse ──────────────────────────────────────────────────────
+  warehouse_id:
+    description: "SQL warehouse ID used by dashboards for query execution"
+    default: "7c93a4bbb818f6f1"
 
   # ── ADLS Gen2 Storage ──────────────────────────────────────────────────
   storage_root:
@@ -95,16 +100,23 @@ targets:
 
   # ── Main Target (production) ───────────────────────────────────────────
   # Deploys to /Shared/ so all team members can access production resources.
-  # Runs under a service principal identity for audit trail and isolation.
+  # The orchestration job runs under a service principal for audit trail
+  # and isolation. Pipelines inherit the job's identity when triggered
+  # as job tasks. Dashboards run as the deployer (run_as not supported).
   # Pipelines run in production mode with full checkpoints.
   main:
     mode: production
     workspace:
       host: https://adb-7405612262402698.18.azuredatabricks.net
       root_path: /Shared/.bundle/${bundle.name}/prod
-    run_as:
-      service_principal_name: "5e35aeb2-73b1-4dd2-92cf-ae0e4829bb65"
     variables:
       target_catalog: "maven_market_prod"
       config_file: "${workspace.file_path}/config/prod_config.yaml"
       pipelines_development: "false"
+    # run_as moved to the job resource — dashboards do not support
+    # a run_as identity different from the deploying user.
+    resources:
+      jobs:
+        maven_market_daily_orchestration:
+          run_as:
+            service_principal_name: "5e35aeb2-73b1-4dd2-92cf-ae0e4829bb65"
