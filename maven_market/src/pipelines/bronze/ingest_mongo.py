@@ -35,7 +35,7 @@ def create_mongo_bronze(dataset_name):
         source_path = spark.conf.get(f"bundle.source_path_{dataset_name}")
 
         return (
-            spark.readStream.format("delta")                        
+            spark.readStream.format("delta")                        #delta streaming to read the delta tables.            
             .load(source_path)
             .withColumn("ingestion_time", current_timestamp())      # When the row was ingested
             .withColumn("source", lit(dataset_name))                # Dataset identifier
