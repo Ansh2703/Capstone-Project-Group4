@@ -8,7 +8,7 @@
 # ║      Requires viewers to have SELECT on queried tables.                ║
 # ║                                                                        ║
 # ║    embed_credentials: true  → queries run as the PUBLISHER.            ║
-# ║      Used for operational dashboards that query bronze/silver           ║
+# ║      Used for dashboards that query bronze/silver schemas              ║
 # ║      (which analysts/executives cannot access directly).               ║
 # ║                                                                        ║
 # ║  All dashboards use the shared SQL warehouse (${var.warehouse_id}).    ║
@@ -40,12 +40,15 @@ resources:
 
     # ── Executive Overview ───────────────────────────────────────────────
     # High-level business KPIs for leadership.
-    # embed_credentials: false so RLS/CLS apply per viewer.
+    # embed_credentials: true because all datasets query silver tables
+    # (transactions, returns, customers) which analysts/executives
+    # cannot access directly. No regional columns exist in this
+    # dashboard, so RLS region filtering does not apply here.
     executive_overview:
       display_name: "[${bundle.target}] Executive Overview"
       file_path: ../dashboards/Executive Overview.lvdash.json
       warehouse_id: ${var.warehouse_id}
-      embed_credentials: false
+      embed_credentials: true
       permissions:
         - level: CAN_MANAGE
           group_name: maven_admins
