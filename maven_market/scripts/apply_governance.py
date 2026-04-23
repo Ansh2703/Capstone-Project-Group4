@@ -17,7 +17,7 @@ from pyspark.sql import SparkSession
 
 spark = SparkSession.builder.getOrCreate()
 
-# ── Resolve target catalog ───────────────────────────────────────────
+# ── Resolve target catalog ───────────────────────────────────────────────────
 CATALOG = sys.argv[1] if len(sys.argv) > 1 else "maven_market_uc"
 print(f"[governance] Target catalog: {CATALOG}")
 
@@ -94,6 +94,15 @@ run_sql("INSERT region assignments for Snigdha and Devjit",
 # =====================================================================
 # 3. ROW-LEVEL SECURITY (RLS)
 #    region_filter function + row filters on region-bearing gold tables
+#
+#    IMPORTANT: dim_store must NOT have a row filter because the gold
+#    pipeline reads it via dlt.read("dim_store") to build aggregations.
+#    The pipeline runs as a service principal that is not in maven_admins
+#    or maven_engineers, so the filter would block all rows and produce
+#    empty agg_regional_sales and agg_store_space_utilization tables.
+#    The filter on agg_regional_sales alone is sufficient — dashboard
+#    joins (agg_regional_sales JOIN dim_store) are already filtered
+#    because the driving table has the row filter.
 # =====================================================================
 print("\n[3/4] Applying Row-Level Security \u2026")
 
@@ -108,12 +117,17 @@ run_sql("CREATE OR REPLACE region_filter function",
                 WHERE user_id = current_user() AND assigned_region = region_name
               )""")
 
-for mv, col in [("dim_store", "sales_region"),
-                ("dim_region", "sales_region"),
-                ("agg_regional_sales", "sales_region")]:
-    run_sql(f"SET ROW FILTER on {mv}({col})",
+# Remove row filter from dim_store if previously applied (pipeline compatibility)
+run_sql("DROP ROW FILTER from dim_store (pipeline compatibility)",
+        f"""ALTER MATERIALIZED VIEW {CATALOG}.gold.dim_store
+            DROP ROW FILTER""")
+
+# Apply row filter only to end-user-facing tables
+for mv, col_name in [("dim_region", "sales_region"),
+                      ("agg_regional_sales", "sales_region")]:
+    run_sql(f"SET ROW FILTER on {mv}({col_name})",
             f"""ALTER MATERIALIZED VIEW {CATALOG}.gold.{mv}
-                SET ROW FILTER {CATALOG}.gold.region_filter ON ({col})""")
+                SET ROW FILTER {CATALOG}.gold.region_filter ON ({col_name})""")
 
 
 # =====================================================================
