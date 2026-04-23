@@ -12,9 +12,12 @@ CREATE TABLE IF NOT EXISTS {CATALOG}.gold.user_region_map
 # Clear and insert your specific team assignments
 spark.sql(f"TRUNCATE TABLE {CATALOG}.gold.user_region_map")
 
-# Update these emails to match your exact team member IDs
+# Snigdha (analyst) → US regions ("North America") mapped to actual sales_region values
+# Devjit  (executive) → South West region only
 spark.sql(f"""
 INSERT INTO {CATALOG}.gold.user_region_map VALUES 
-('snigdha@rajnijha29112001gmail.onmicrosoft.com', 'North America'),
-('devjit@rajnijha29112001gmail.onmicrosoft.com', 'Europe')
+('snigdha@rajnijha29112001gmail.onmicrosoft.com', 'North West'),
+('snigdha@rajnijha29112001gmail.onmicrosoft.com', 'Central West'),
+('snigdha@rajnijha29112001gmail.onmicrosoft.com', 'South West'),
+('devjit@rajnijha29112001gmail.onmicrosoft.com',  'South West')
 """)
