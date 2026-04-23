@@ -1,30 +1,56 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  Production Environment Configuration                                 ║
+# ║                                                                        ║
+# ║  Loaded by src/utils/config_parser.py at pipeline runtime.             ║
+# ║  The path to this file is passed via the bundle variable               ║
+# ║  ${var.config_file} defined in databricks.yml.                         ║
+# ║                                                                        ║
+# ║  Key differences from dev:                                             ║
+# ║    - catalog → maven_market_prod (isolated from dev data)              ║
+# ║    - checkpoints → under checkpoints/prod/ (separate from dev)         ║
+# ║    - Pipelines run under a service principal (see databricks.yml)      ║
+# ║                                                                        ║
+# ║  Paths & checkpoints use RELATIVE suffixes — config_parser.py          ║
+# ║  auto-prepends storage_root at load time, keeping this file DRY.       ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
+# ── General ──────────────────────────────────────────────────────────────
 environment: "prod"
 catalog: "maven_market_prod"
+
+# Single source of truth for the ADLS Gen2 base path.
+# All entries in 'paths' and 'checkpoints' below are relative to this root.
 storage_root: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/"
 
+# ── Schema Mapping ───────────────────────────────────────────────────────
 schemas:
   bronze: "bronze"
   silver: "silver"
   gold: "gold"
   audit: "audit"
 
+# ── Source Data Paths (relative to storage_root) ─────────────────────────
+# Same source data as dev — prod reads the same raw files.
 paths:
-  landing_zone: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/"
-  csv_landing: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/transactions/"
-  metastore_root: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/unity-catalog/metastore"
-  transactions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/transactions/"
-  regions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/regions/"
-  stores: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/stores/"
-  return: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/return/"
-  calendar: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/calendar/"
-  customers: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/customers/"
-  products: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/products/"
+  landing_zone: "raw/"
+  csv_landing:  "raw/transactions/"
+  metastore_root: "unity-catalog/metastore"
+  transactions: "raw/transactions/"
+  regions:      "raw/regions/"
+  stores:       "raw/stores/"
+  return:       "raw/return/"
+  calendar:     "raw/calendar/"
+  customers:    "raw/atlas/mongo_maven_db/customers/"
+  products:     "raw/atlas/mongo_maven_db/products/"
 
+# ── Auto Loader Checkpoint Paths (Prod-Isolated, relative to storage_root)
+# Separate checkpoint directories from dev to avoid cross-environment
+# state conflicts. Located under checkpoints/prod/.
 checkpoints:
-  transactions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/transactions/"
-  regions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/regions/"
-  stores: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/stores/"
-  return: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/return/"
-  calendar: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/calendar/"
-  customers: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/customers/"
-  products: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/prod/products/"
+  transactions: "checkpoints/prod/transactions/"
+  regions:      "checkpoints/prod/regions/"
+  stores:       "checkpoints/prod/stores/"
+  return:       "checkpoints/prod/return/"
+  calendar:     "checkpoints/prod/calendar/"
+  customers:    "checkpoints/prod/customers/"
+  products:     "checkpoints/prod/products/"

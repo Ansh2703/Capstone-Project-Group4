@@ -1,10 +1,34 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  Lakeflow Spark Declarative Pipelines — Medallion Architecture         ║
+# ║                                                                        ║
+# ║  Three pipelines process data through the medallion layers:            ║
+# ║                                                                        ║
+# ║    Bronze  →  Raw ingestion from CSV, Kafka, and MongoDB               ║
+# ║    Silver  →  Cleansed, conformed, SCD-2 tracked                       ║
+# ║    Gold    →  Business-ready dimensions, facts, and aggregations       ║
+# ║                                                                        ║
+# ║  All pipelines run serverless. Each writes to its own schema           ║
+# ║  inside the target catalog (${var.target_catalog}).                    ║
+# ║                                                                        ║
+# ║  ZERO hardcoded values — every configurable setting is driven by       ║
+# ║  bundle variables defined in databricks.yml.                           ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
 resources:
   pipelines:
+
     # ── Bronze Pipeline ──────────────────────────────────────────────────
+    # Ingests raw data from three source systems into the bronze schema:
+    #   - CSV files on ADLS Gen2 via Auto Loader (transactions, regions,
+    #     stores, returns, calendar)
+    #   - Confluent Cloud Kafka via Structured Streaming (orders, inventory)
+    #   - MongoDB Atlas exports on ADLS via Delta Streaming (customers,
+    #     products)
+    # Every record is stamped with ingestion_time, source_file, source_name.
     maven_market_bronze:
       name: "[${bundle.target}] Maven Market Bronze"
       catalog: ${var.target_catalog}
-      target: bronze
+      target: ${var.bronze_schema}
       serverless: true
 
       libraries:
@@ -18,10 +42,12 @@ resources:
             path: ../src/pipelines/bronze/ingest_mongo.py
 
       configuration:
-        # Project root for Python imports (src.utils.logger, etc.)
+        # Project root — lets pipeline code resolve Python imports
+        # (e.g. src.utils.logger, src.utils.config_parser)
         bundle.project_root: "${workspace.file_path}"
 
-        # ADLS source paths — built from the storage_root variable
+        # ADLS Gen2 source paths — each points to a subfolder under
+        # the storage_root variable defined in databricks.yml
         bundle.source_path_transactions: "${var.storage_root}/raw/transactions/"
         bundle.source_path_regions:      "${var.storage_root}/raw/regions/"
         bundle.source_path_stores:       "${var.storage_root}/raw/stores/"
@@ -30,19 +56,28 @@ resources:
         bundle.source_path_customers:    "${var.storage_root}/raw/atlas/mongo_maven_db/customers/"
         bundle.source_path_products:     "${var.storage_root}/raw/atlas/mongo_maven_db/products/"
 
-        # Kafka configuration (credentials read from Databricks Secrets at runtime)
+        # Confluent Cloud Kafka settings — all values from bundle variables.
+        # API key and secret are stored in Databricks Secrets (Azure Key Vault-backed)
+        # and read at runtime — never hardcoded in config.
         bundle.kafka_bootstrap_servers:  "${var.kafka_bootstrap_servers}"
-        bundle.kafka_orders_topic:       "orders_topic"
-        bundle.kafka_inventory_topic:    "inventory_topic"
-        bundle.kafka_secret_scope:       "kafkaKeyVault"
-        bundle.kafka_api_key_secret:     "kafka-api-key"
-        bundle.kafka_api_secret_secret:  "kafka-api-secret"
+        bundle.kafka_orders_topic:       "${var.kafka_orders_topic}"
+        bundle.kafka_inventory_topic:    "${var.kafka_inventory_topic}"
+        bundle.kafka_secret_scope:       "${var.kafka_secret_scope}"
+        bundle.kafka_api_key_secret:     "${var.kafka_api_key_secret}"
+        bundle.kafka_api_secret_secret:  "${var.kafka_api_secret_secret}"
 
     # ── Silver Pipeline ──────────────────────────────────────────────────
+    # Reads from bronze and applies:
+    #   - Type casting, date parsing, column renaming
+    #   - SCD Type-2 tracking (stores, customers, products)
+    #   - SCD Type-1 for regions
+    #   - Stream-static joins (orders ↔ stores for location enrichment)
+    #   - Stock health classification (inventory)
+    #   - Data quality expectations (expect_or_drop, expect_or_fail)
     maven_market_silver:
       name: "[${bundle.target}] Maven Market Silver"
       catalog: ${var.target_catalog}
-      target: silver
+      target: ${var.silver_schema}
       serverless: true
 
       libraries:
@@ -54,18 +89,30 @@ resources:
             path: ../src/pipelines/silver/silver_mongo_dlt.py
 
       configuration:
-        # Project root for Python imports (src.utils.logger, etc.)
         bundle.project_root: "${workspace.file_path}"
-        # Passed so silver code can build FQN for cross-schema bronze reads
+        # Silver code reads from bronze tables using fully qualified names:
+        #   {target_catalog}.{bronze_schema}.<table>
         bundle.target_catalog: ${var.target_catalog}
-        bundle.bronze_schema: "bronze"
+        bundle.bronze_schema: ${var.bronze_schema}
         bundle.environment: ${bundle.target}
 
     # ── Gold Pipeline ────────────────────────────────────────────────────
+    # Reads from silver and produces business-ready tables:
+    #   - Conformed dimensions (dim_date, dim_region, dim_store,
+    #     dim_customer, dim_product) — SCD-2 current snapshots
+    #   - Star-schema facts (fact_sales, fact_returns)
+    #   - Pre-computed aggregations (executive overview, regional sales,
+    #     customer LTV, inventory alerts, orders per minute, space util)
+    #
+    # Governance applied directly on gold materialized views:
+    #   - CLS: PII columns masked on dim_customer, dim_store,
+    #          agg_customer_ltv (see src/governance/apply_cls.sql)
+    #   - RLS: Region filter on dim_store, dim_region,
+    #          agg_regional_sales (see src/governance/apply_rls.sql)
     maven_market_gold:
       name: "[${bundle.target}] Maven Market Gold"
       catalog: ${var.target_catalog}
-      target: gold
+      target: ${var.gold_schema}
       serverless: true
 
       libraries:
@@ -73,8 +120,8 @@ resources:
             path: ../src/pipelines/gold/gold_dlt.py
 
       configuration:
-        # Project root for Python imports (src.utils.logger, etc.)
         bundle.project_root: "${workspace.file_path}"
-        # Passed so gold code can build FQN for cross-schema silver reads
+        # Gold code reads from silver tables using fully qualified names:
+        #   {target_catalog}.{silver_schema}.<table>
         bundle.target_catalog: ${var.target_catalog}
-        bundle.silver_schema: "silver"
+        bundle.silver_schema: ${var.silver_schema}

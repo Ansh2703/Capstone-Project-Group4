@@ -1,32 +1,52 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  Dev Environment Configuration                                        ║
+# ║                                                                        ║
+# ║  Loaded by src/utils/config_parser.py at pipeline runtime.             ║
+# ║  The path to this file is passed via the bundle variable               ║
+# ║  ${var.config_file} defined in databricks.yml.                         ║
+# ║                                                                        ║
+# ║  Paths & checkpoints use RELATIVE suffixes — config_parser.py          ║
+# ║  auto-prepends storage_root at load time, keeping this file DRY.       ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
+# ── General ──────────────────────────────────────────────────────────────
 environment: "dev"
 catalog: "maven_market_uc"
+
+# Single source of truth for the ADLS Gen2 base path.
+# All entries in 'paths' and 'checkpoints' below are relative to this root.
 storage_root: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/"
 
+# ── Schema Mapping ───────────────────────────────────────────────────────
+# Maps logical layer names to physical schema names in Unity Catalog.
 schemas:
   bronze: "bronze"
   silver: "silver"
   gold: "gold"
   audit: "audit"
 
+# ── Source Data Paths (relative to storage_root) ─────────────────────────
+# config_parser.py prepends storage_root automatically.
 paths:
-  landing_zone: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/"
-  # Added sub-folders for specific sources
-  csv_landing: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/transactions/"
-  metastore_root: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/unity-catalog/metastore"
+  landing_zone: "raw/"
+  csv_landing:  "raw/transactions/"
+  metastore_root: "unity-catalog/metastore"
+  transactions: "raw/transactions/"
+  regions:      "raw/regions/"
+  stores:       "raw/stores/"
+  return:       "raw/return/"
+  calendar:     "raw/calendar/"
+  customers:    "raw/atlas/mongo_maven_db/customers/"
+  products:     "raw/atlas/mongo_maven_db/products/"
 
-  transactions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/transactions/"
-  regions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/regions/"
-  stores: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/stores/"
-  return: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/return/"
-  calendar: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/calendar/"
-  customers: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/customers/"
-  products: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/raw/atlas/mongo_maven_db/products/"
-
+# ── Auto Loader Checkpoint Paths (relative to storage_root) ──────────────
+# Each dataset gets its own checkpoint directory so Auto Loader can track
+# which files have already been ingested (exactly-once semantics).
 checkpoints:
-  transactions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/transactions/"
-  regions: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/regions/"
-  stores: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/stores/"
-  return: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/return/"
-  calendar: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/calendar/"
-  customers: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/customers/"
-  products: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net/checkpoints/products/"
+  transactions: "checkpoints/transactions/"
+  regions:      "checkpoints/regions/"
+  stores:       "checkpoints/stores/"
+  return:       "checkpoints/return/"
+  calendar:     "checkpoints/calendar/"
+  customers:    "checkpoints/customers/"
+  products:     "checkpoints/products/"

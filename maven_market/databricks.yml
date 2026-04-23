@@ -1,30 +1,87 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  Maven Market — Databricks Declarative Automation Bundle (DABs)        ║
+# ║                                                                        ║
+# ║  End-to-end retail data engineering platform on Azure Databricks.       ║
+# ║  Ingests CSV, Kafka, and MongoDB data through a Medallion architecture ║
+# ║  (Bronze → Silver → Gold) with full Unity Catalog governance.          ║
+# ║                                                                        ║
+# ║  Security Model (Active):                                              ║
+# ║    - Row-Level Security (RLS) on region-bearing gold tables            ║
+# ║    - Column-Level Security (CLS) masking PII across 3 gold tables     ║
+# ║    - Tiered RBAC: admins / engineers / analysts / executives           ║
+# ║                                                                        ║
+# ║  Targets: dev (default) | main (production, service principal)         ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
 bundle:
   name: "maven_market_v3"
 
-# 1. Loading the resources
+# ─── Resource Includes ───────────────────────────────────────────────────
+# All pipeline, job, and infrastructure definitions live in resources/.
+# DABs auto-discovers every .yml file matching this glob pattern.
 include:
   - resources/*.yml
 
-# 2. DEFINING THE VARIABLES
+# ─── Bundle Variables ────────────────────────────────────────────────────
+# Parameterised values that change between dev and prod environments.
+# Referenced in resource YAMLs as ${var.<name>}.
 variables:
+
+  # ── Catalog & Schemas ──────────────────────────────────────────────────
   target_catalog:
-    description: "The catalog where data will be stored"
+    description: "Unity Catalog catalog for all schemas (bronze, silver, gold, audit)"
     default: "maven_market_uc"
+  bronze_schema:
+    description: "Schema name for the raw ingestion layer"
+    default: "bronze"
+  silver_schema:
+    description: "Schema name for the cleansed/conformed layer"
+    default: "silver"
+  gold_schema:
+    description: "Schema name for the business-ready layer"
+    default: "gold"
+
+  # ── Environment Config ─────────────────────────────────────────────────
   config_file:
-    description: "Path to the environment config"
+    description: "Absolute workspace path to the environment config YAML (used by src/utils/config_parser.py)"
     default: "${workspace.file_path}/config/dev_config.yaml"
   pipelines_development:
-    description: "Enable development mode for DLT"
+    description: "When 'true', pipelines run in dev mode (faster restarts, no production checkpoints)"
     default: "true"
-  storage_root:
-    description: "ADLS Gen2 base path for all raw data and checkpoints"
-    default: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net"
-  kafka_bootstrap_servers:
-    description: "Confluent Cloud Kafka bootstrap servers"
-    default: "pkc-56d1g.eastus.azure.confluent.cloud:9092"
 
-# 3. Target Overrides
+  # ── ADLS Gen2 Storage ──────────────────────────────────────────────────
+  storage_root:
+    description: "ADLS Gen2 container root — all raw data, checkpoints, and exports live under this path"
+    default: "abfss://maven-market-data@sgmavenmarket1.dfs.core.windows.net"
+
+  # ── Confluent Cloud Kafka ──────────────────────────────────────────────
+  kafka_bootstrap_servers:
+    description: "Confluent Cloud Kafka broker address for real-time order and inventory streams"
+    default: "pkc-56d1g.eastus.azure.confluent.cloud:9092"
+  kafka_orders_topic:
+    description: "Kafka topic name for real-time order events"
+    default: "orders_topic"
+  kafka_inventory_topic:
+    description: "Kafka topic name for real-time inventory events"
+    default: "inventory_topic"
+  kafka_secret_scope:
+    description: "Databricks secret scope (Azure Key Vault-backed) holding Kafka credentials"
+    default: "kafkaKeyVault"
+  kafka_api_key_secret:
+    description: "Secret key name for the Confluent Cloud API key inside the secret scope"
+    default: "kafka-api-key"
+  kafka_api_secret_secret:
+    description: "Secret key name for the Confluent Cloud API secret inside the secret scope"
+    default: "kafka-api-secret"
+
+# ─── Deployment Targets ─────────────────────────────────────────────────
+# Each target overrides variables and workspace settings for its environment.
 targets:
+
+  # ── Dev Target (default) ───────────────────────────────────────────────
+  # Used for day-to-day development and testing.
+  # Deploys to the developer's personal workspace folder.
+  # Pipelines run in development mode for fast iteration.
   dev:
     mode: development
     default: true
@@ -36,6 +93,10 @@ targets:
       config_file: "${workspace.file_path}/config/dev_config.yaml"
       pipelines_development: "true"
 
+  # ── Main Target (production) ───────────────────────────────────────────
+  # Deploys to /Shared/ so all team members can access production resources.
+  # Runs under a service principal identity for audit trail and isolation.
+  # Pipelines run in production mode with full checkpoints.
   main:
     mode: production
     workspace:

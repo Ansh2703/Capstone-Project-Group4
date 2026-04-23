@@ -1,37 +1,67 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  Orchestration Job — Full Pipeline DAG                                 ║
+# ║                                                                        ║
+# ║  Execution order (linear dependency chain):                            ║
+# ║                                                                        ║
+# ║    run_tests ──► run_bronze_pipeline ──► run_silver_pipeline           ║
+# ║                       ──► run_gold_pipeline ──► post_pipeline_audit    ║
+# ║                                                                        ║
+# ║  Design decisions:                                                     ║
+# ║    1. Tests run FIRST as a quality gate — if any test fails,           ║
+# ║       no pipelines execute and the job fails immediately.              ║
+# ║    2. Each pipeline layer waits for its predecessor to complete.       ║
+# ║    3. After gold completes, an audit summary is written to the         ║
+# ║       audit schema for operational monitoring.                         ║
+# ║    4. Python tasks use serverless environments with pinned deps.       ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
 resources:
   jobs:
     maven_market_daily_orchestration:
       name: "[${bundle.target}] Full Project Orchestration"
 
       tasks:
-        # ── Step 0: Run unit tests before anything else ──
+
+        # ── Step 0: Quality gate ─────────────────────────────────────────
+        # Runs the full pytest suite (tests/) on serverless compute.
+        # Covers ingestion parsing, transformation logic, DQ expectations,
+        # SCD-2 filtering, gold aggregations, and join correctness.
+        # A non-zero exit code from pytest stops the entire job.
         - task_key: run_tests
           spark_python_task:
             python_file: ../tests/run_tests.py
           environment_key: test_env
 
-        # ── Step 1: Bronze ingestion ──
+        # ── Step 1: Bronze ingestion ─────────────────────────────────────
+        # Triggers the Bronze pipeline (CSV + Kafka + MongoDB → bronze schema).
         - task_key: run_bronze_pipeline
           depends_on:
             - task_key: run_tests
           pipeline_task:
             pipeline_id: ${resources.pipelines.maven_market_bronze.id}
 
-        # ── Step 2: Silver transformations ──
+        # ── Step 2: Silver cleansing ─────────────────────────────────────
+        # Triggers the Silver pipeline (bronze → silver schema).
+        # Applies type casting, SCD-2, quality expectations, joins.
         - task_key: run_silver_pipeline
           depends_on:
             - task_key: run_bronze_pipeline
           pipeline_task:
             pipeline_id: ${resources.pipelines.maven_market_silver.id}
 
-        # ── Step 3: Gold aggregations ──
+        # ── Step 3: Gold aggregations ────────────────────────────────────
+        # Triggers the Gold pipeline (silver → gold schema).
+        # Produces dimensions, facts, and business aggregation MVs.
         - task_key: run_gold_pipeline
           depends_on:
             - task_key: run_silver_pipeline
           pipeline_task:
             pipeline_id: ${resources.pipelines.maven_market_gold.id}
 
-        # ── Step 4: Write audit summary to audit_logs table ──
+        # ── Step 4: Audit logging ────────────────────────────────────────
+        # Writes a structured audit summary row to the audit schema.
+        # Receives the target catalog name as a CLI parameter so it
+        # can resolve the correct audit_logs table.
         - task_key: post_pipeline_audit
           depends_on:
             - task_key: run_gold_pipeline
@@ -41,7 +71,8 @@ resources:
               - "${var.target_catalog}"
           environment_key: audit_env
 
-      # Serverless environments for Python tasks
+      # ── Serverless Python Environments ─────────────────────────────────
+      # Each environment pins its own dependencies so tasks are isolated.
       environments:
         - environment_key: test_env
           spec:
